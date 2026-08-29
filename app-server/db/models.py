@@ -1,4 +1,5 @@
 from chats.models import Chat
+from messages.models import Message
 from .session import engine
 from .base import Base
 
