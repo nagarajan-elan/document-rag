@@ -504,8 +504,29 @@
         hasMore: true,
         isLoading: false,
         messageMap: {},
+        messagePaging: {},
         archivedMode: false,
       };
+
+      function isNearBottom(container, threshold = 60) {
+        return container.scrollHeight - (container.scrollTop + container.clientHeight) <= threshold;
+      }
+
+      function maybeLoadMoreChats() {
+        if (state.hasMore && !state.isLoading && isNearBottom(chatListEl, 40)) {
+          fetchChatsPage();
+        }
+      }
+
+      function maybeLoadMoreMessages() {
+        const selectedChat = getSelectedChat();
+        if (!selectedChat) return;
+
+        const messagePaging = getMessagePaging(selectedChat.id);
+        if (messagePaging.hasMore && !messagePaging.isLoading && isNearBottom(conversationEl, 80)) {
+          fetchMessagesForChat(selectedChat.id, false);
+        }
+      }
 
       function escapeHtml(value) {
         return String(value)
@@ -532,6 +553,10 @@
         selectedChatNameEl.textContent = selected ? selected.name : 'Select a chat';
         renderChatList();
         renderConversation();
+
+        if (chatId) {
+          fetchMessagesForChat(chatId, true);
+        }
       }
 
       function renderChatList() {
@@ -560,6 +585,18 @@
           .join('');
       }
 
+      function normalizeMessages(rawMessages) {
+        return (rawMessages || [])
+          .filter((message) => message && typeof message.content === 'string')
+          .map((message) => ({
+            id: message.id,
+            role: message.role || 'assistant',
+            text: message.content,
+            created_at: message.created_at,
+          }))
+          .sort((left, right) => new Date(left.created_at || 0) - new Date(right.created_at || 0));
+      }
+
       function renderConversation() {
         const selected = state.chats.find((chat) => chat.id === state.selectedChatId);
         if (!selected) {
@@ -571,12 +608,16 @@
           return;
         }
 
-        const messages = state.messageMap[selected.id] || [
-          {
-            role: 'assistant',
-            text: 'This enterprise RAG workspace is ready. Ask about documents, policies, product notes, or operational runbooks.',
-          },
-        ];
+        const messages = state.messageMap[selected.id] || [];
+
+        if (!messages.length) {
+          conversationEl.innerHTML = `
+            <div class="message-list">
+              <div class="empty-state">No messages yet. Start the conversation below.</div>
+            </div>
+          `;
+          return;
+        }
 
         conversationEl.innerHTML = `
           <div class="message-list">
@@ -594,6 +635,73 @@
         `;
       }
 
+      function getMessagePaging(chatId) {
+        if (!state.messagePaging[chatId]) {
+          state.messagePaging[chatId] = {
+            page: 1,
+            hasMore: true,
+            isLoading: false,
+          };
+        }
+
+        return state.messagePaging[chatId];
+      }
+
+      async function fetchMessagesForChat(chatId, reset = false) {
+        if (!chatId) return;
+
+        const messagePaging = getMessagePaging(chatId);
+        if (messagePaging.isLoading) return;
+        if (!reset && !messagePaging.hasMore) return;
+
+        messagePaging.isLoading = true;
+        const page = reset ? 1 : messagePaging.page;
+
+        try {
+          const response = await fetch(`${API_BASE}/chats/${chatId}/messages/?page=${page}&page_size=25`);
+          if (!response.ok) {
+            throw new Error('Failed to load chat messages');
+          }
+
+          const messages = await response.json();
+          if (!Array.isArray(messages)) {
+            throw new Error('Unexpected message response format');
+          }
+
+          if (!messages.length) {
+            messagePaging.hasMore = false;
+            if (reset) {
+              state.messageMap[chatId] = [];
+            }
+            renderConversation();
+            maybeLoadMoreMessages();
+            return;
+          }
+
+          const normalized = normalizeMessages(messages);
+          if (reset) {
+            state.messageMap[chatId] = normalized;
+            messagePaging.page = 2;
+          } else {
+            state.messageMap[chatId] = [...(state.messageMap[chatId] || []), ...normalized];
+            messagePaging.page += 1;
+          }
+
+          messagePaging.hasMore = normalized.length >= 25;
+          renderConversation();
+          maybeLoadMoreMessages();
+        } catch (error) {
+          console.error(error);
+          if (reset) {
+            state.messageMap[chatId] = [];
+          }
+          messagePaging.hasMore = false;
+          renderConversation();
+        } finally {
+          messagePaging.isLoading = false;
+        }
+      }
+
       async function fetchChatsPage() {
         if (state.isLoading || !state.hasMore) return;
 
@@ -601,7 +709,7 @@
 
         try {
           const response = await fetch(
-            `${API_BASE}/chats/?page=${state.page}&page_size=10&archived=${state.archivedMode}`
+            `${API_BASE}/chats/?page=${state.page}&page_size=20&archived=${state.archivedMode}`
           );
           if (!response.ok) {
             throw new Error('Failed to load chats');
@@ -614,6 +722,7 @@
 
           if (newChats.length === 0) {
             state.hasMore = false;
+            renderChatList();
             return;
           }
 
@@ -622,10 +731,14 @@
             setSelectedChat(newChats[0].id);
           }
 
-          state.page += 1;
+          state.hasMore = newChats.length >= 20;
+          if (state.hasMore) {
+            state.page += 1;
+          }
           renderChatList();
         } catch (error) {
           console.error(error);
+          state.hasMore = false;
           chatListEl.innerHTML = '<div class="empty-state">Unable to load chats right now.</div>';
         } finally {
           state.isLoading = false;
@@ -786,11 +899,11 @@
       });
 
       chatListEl.addEventListener('scroll', () => {
-        const nearBottom =
-          chatListEl.scrollTop + chatListEl.clientHeight >= chatListEl.scrollHeight - 24;
-        if (nearBottom) {
-          fetchChatsPage();
-        }
+        maybeLoadMoreChats();
+      });
+
+      conversationEl.addEventListener('scroll', () => {
+        maybeLoadMoreMessages();
       });
 
       function toggleSidebar(forceExpand) {
@@ -808,7 +921,7 @@
         toggleSidebar(false);
       });
 
-      document.getElementById('composerForm').addEventListener('submit', (event) => {
+      document.getElementById('composerForm').addEventListener('submit', async (event) => {
         event.preventDefault();
         const selectedChat = getSelectedChat();
         if (!selectedChat) {
@@ -819,18 +932,30 @@
         const text = messageInputEl.value.trim();
         if (!text) return;
 
-        if (!state.messageMap[selectedChat.id]) {
-          state.messageMap[selectedChat.id] = [];
+        try {
+          const response = await fetch(`${API_BASE}/chats/${selectedChat.id}/messages/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              content: text,
+              role: 'user',
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || 'Message creation failed');
+          }
+
+          messageInputEl.value = '';
+          const messagePaging = getMessagePaging(selectedChat.id);
+          messagePaging.page = 1;
+          messagePaging.hasMore = true;
+          await fetchMessagesForChat(selectedChat.id, true);
+        } catch (error) {
+          console.error(error);
+          window.alert('Your message could not be sent.');
         }
-
-        state.messageMap[selectedChat.id].push({ role: 'user', text });
-        state.messageMap[selectedChat.id].push({
-          role: 'assistant',
-          text: 'I can answer this by searching the enterprise knowledge base and summarizing the relevant sources for your team.',
-        });
-
-        messageInputEl.value = '';
-        renderConversation();
       });
 
       fetchChatsPage();

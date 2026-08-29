@@ -21,7 +21,7 @@ class MessageRepository:
             .offset(offset)
             .limit(page_size)
             .where(Message.chat_id == chat_id)
-            .order_by(Message.created_at.desc())
+            .order_by(Message.created_at.asc())
         ).all()
 
     def create(self, chat_id: uuid.UUID, data: MessageCreatePayload):
