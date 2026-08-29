@@ -1,4 +1,6 @@
+from contextlib import asynccontextmanager
 from pathlib import Path
+from storage.minio import ensure_bucket
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,9 +8,19 @@ from fastapi.responses import FileResponse
 
 from chats.router import router as chats_router
 from documents.router import router as documents_router
+
+# TODO: Remove below import once db migrations are handled separately
 from db.models import Base
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await ensure_bucket()
+    # initialize other app resources
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
