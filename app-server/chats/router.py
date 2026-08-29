@@ -12,9 +12,10 @@ router = APIRouter(prefix="/chats", tags=["Chats"])
 def get_chats(
     page: int = 1,
     page_size: int = 10,
+    archived: bool = False,
     respository: ChatRepository = Depends(get_chat_repository),
 ):
-    return respository.get_all(page=page, page_size=page_size)
+    return respository.get_all(page=page, page_size=page_size, archived=archived)
 
 
 @router.post("/", response_model=ChatResponse)

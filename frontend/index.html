@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Knowledge Base RAG</title>
+    <style>
+      :root {
+        --bg: #08131f;
+        --panel: #111d2d;
+        --panel-alt: #0e1b2a;
+        --sidebar: #0b1725;
+        --surface: #16273d;
+        --surface-soft: #1d3350;
+        --text: #edf5ff;
+        --muted: #9db0c6;
+        --accent: #70d0ff;
+        --accent-2: #7ef0c7;
+        --border: rgba(146, 176, 214, 0.2);
+        --danger: #ff7a7a;
+        --shadow: 0 18px 45px rgba(7, 12, 18, 0.45);
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        height: 100%;
+        font-family: Inter, "Segoe UI", sans-serif;
+        background: linear-gradient(135deg, #08131f 0%, #0d1e2d 100%);
+        color: var(--text);
+      }
+
+      body {
+        min-height: 100vh;
+        overflow: hidden;
+      }
+
+      button, input {
+        font: inherit;
+      }
+
+      .app-shell {
+        display: flex;
+        width: 100%;
+        height: 100vh;
+      }
+
+      .sidebar {
+        width: 320px;
+        min-width: 320px;
+        background: rgba(11, 23, 37, 0.96);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        transition: width 0.2s ease, min-width 0.2s ease, transform 0.2s ease;
+        box-shadow: var(--shadow);
+        z-index: 2;
+      }
+
+      .sidebar.collapsed {
+        width: 78px;
+        min-width: 78px;
+      }
+
+      .sidebar-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 18px 16px 14px;
+        border-bottom: 1px solid var(--border);
+        gap: 10px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+
+      .brand-mark {
+        width: 32px;
+        height: 32px;
+        border: none;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        color: #06121d;
+        cursor: pointer;
+        padding: 0;
+      }
+
+      .brand-name {
+        font-size: 0.98rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
+
+      .sidebar.collapsed .brand-name,
+      .sidebar.collapsed .chat-toolbar,
+      .sidebar.collapsed .chat-list,
+      .sidebar.collapsed .sidebar-header .icon-button,
+      .sidebar.collapsed .chat-actions,
+      .sidebar.collapsed .chat-item .rename-btn,
+      .sidebar.collapsed .chat-item .archive-btn,
+      .sidebar.collapsed .chat-item .delete-btn,
+      .sidebar.collapsed .chat-item .chat-summary {
+        display: none;
+      }
+
+      .sidebar.collapsed .sidebar-header {
+        justify-content: center;
+      }
+
+      .sidebar.collapsed .brand {
+        justify-content: center;
+      }
+
+      .sidebar:not(.collapsed) #toggleSidebar {
+        display: none;
+      }
+
+      .sidebar.collapsed #toggleSidebarSecondary {
+        display: none;
+      }
+
+      .ghost-button,
+      .primary-button,
+      .icon-button {
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.02);
+        color: var(--text);
+        border-radius: 10px;
+        cursor: pointer;
+        transition: transform 0.15s ease, background 0.15s ease;
+      }
+
+      .ghost-button:hover,
+      .primary-button:hover,
+      .icon-button:hover {
+        transform: translateY(-1px);
+        background: rgba(112, 208, 255, 0.08);
+      }
+
+      .primary-button {
+        border-color: rgba(112, 208, 255, 0.5);
+        background: linear-gradient(135deg, rgba(112, 208, 255, 0.2), rgba(126, 240, 199, 0.18));
+      }
+
+      .icon-button {
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        display: grid;
+        place-items: center;
+        font-size: 1rem;
+      }
+
+      .chat-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 14px;
+      }
+
+      .new-chat {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 11px 12px;
+      }
+
+      .archived-section {
+        margin-top: auto;
+        padding: 10px 12px 12px;
+        border-top: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.015);
+      }
+
+      .archived-toggle {
+        width: 100%;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.02);
+        color: var(--text);
+        border-radius: 10px;
+        padding: 8px 10px;
+        cursor: pointer;
+        font-size: 0.8rem;
+      }
+
+      .chat-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px 10px 16px;
+        scrollbar-width: thin;
+      }
+
+      .chat-item {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        border: 1px solid transparent;
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: 12px;
+        padding: 10px 10px;
+        margin-bottom: 8px;
+        cursor: pointer;
+        transition: background 0.15s ease, border-color 0.15s ease;
+      }
+
+      .chat-item:hover {
+        background: rgba(112, 208, 255, 0.05);
+      }
+
+      .chat-item.active {
+        background: rgba(112, 208, 255, 0.12);
+        border-color: rgba(112, 208, 255, 0.35);
+      }
+
+      .chat-summary {
+        min-width: 0;
+        flex: 1;
+      }
+
+      .chat-title {
+        font-weight: 600;
+        font-size: 0.95rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .chat-meta {
+        margin-top: 4px;
+        font-size: 0.73rem;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .chat-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .rename-btn,
+      .archive-btn,
+      .delete-btn {
+        width: 28px;
+        height: 28px;
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 8px;
+        background: rgba(255,255,255,0.03);
+        color: var(--text);
+        cursor: pointer;
+      }
+
+      .archive-btn {
+        color: #dfefff;
+      }
+
+      .delete-btn {
+        color: #ffb4b4;
+        border-color: rgba(255, 122, 122, 0.35);
+      }
+
+      .empty-state {
+        padding: 30px 18px;
+        color: var(--muted);
+        text-align: center;
+        font-size: 0.9rem;
+      }
+
+      .main-panel {
+        flex: 1;
+        min-width: 0;
+        background: linear-gradient(180deg, rgba(9, 16, 24, 0.84), rgba(12, 23, 34, 0.92));
+        display: flex;
+        flex-direction: column;
+      }
+
+      .main-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px 24px 12px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .header-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .title-block {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .title-label {
+        color: var(--muted);
+        font-size: 0.74rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .chat-name {
+        font-size: clamp(1.15rem, 1.4vw, 1.5rem);
+        font-weight: 700;
+      }
+
+      .main-body {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+
+      .conversation {
+        flex: 1;
+        overflow-y: auto;
+        padding: 18px 22px 10px;
+      }
+
+      .message-list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        max-width: 920px;
+        margin: 0 auto;
+      }
+
+      .message {
+        max-width: 75%;
+        padding: 14px 16px;
+        border-radius: 16px;
+        line-height: 1.5;
+        box-shadow: 0 12px 26px rgba(8, 12, 18, 0.28);
+      }
+
+      .message.user {
+        align-self: flex-end;
+        background: linear-gradient(135deg, rgba(112, 208, 255, 0.22), rgba(126, 240, 199, 0.1));
+        border-bottom-right-radius: 4px;
+      }
+
+      .message.assistant {
+        align-self: flex-start;
+        background: rgba(24, 38, 58, 0.9);
+        border: 1px solid rgba(146, 176, 214, 0.15);
+        border-bottom-left-radius: 4px;
+      }
+
+      .message-role {
+        display: block;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 6px;
+        color: var(--muted);
+      }
+
+      .composer {
+        border-top: 1px solid var(--border);
+        padding: 16px 22px 20px;
+        background: rgba(10, 15, 21, 0.72);
+      }
+
+      .composer-box {
+        max-width: 920px;
+        margin: 0 auto;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        border: 1px solid var(--border);
+        background: rgba(17, 30, 44, 0.9);
+        border-radius: 14px;
+        padding: 10px 12px 10px 16px;
+      }
+
+      .composer-input {
+        flex: 1;
+        background: transparent;
+        border: none;
+        outline: none;
+        color: var(--text);
+        font-size: 1rem;
+        min-width: 0;
+      }
+
+      .composer-input::placeholder {
+        color: var(--muted);
+      }
+
+      .send-button {
+        padding: 10px 16px;
+        border: none;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        color: #06121d;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      @media (max-width: 780px) {
+        .sidebar {
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          transform: translateX(0);
+        }
+
+        .sidebar.collapsed {
+          transform: translateX(-100%);
+          width: 320px;
+          min-width: 320px;
+        }
+
+        .main-panel {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+          <div class="brand">
+            <button class="brand-mark" id="toggleSidebar" type="button" aria-label="Expand sidebar">KB</button>
+            <div class="brand-name">Knowledge Base</div>
+          </div>
+          <button class="icon-button" id="toggleSidebarSecondary" aria-label="Collapse sidebar">☰</button>
+        </div>
+
+        <div class="chat-toolbar">
+          <button class="primary-button new-chat" id="newChatButton" type="button">
+            <span>＋</span>
+            <span class="new-chat-label">New chat</span>
+          </button>
+        </div>
+
+        <div class="chat-list" id="chatList" aria-live="polite"></div>
+
+        <div class="archived-section">
+          <button class="archived-toggle" id="archivedToggle" type="button">Archived chats</button>
+        </div>
+      </aside>
+
+      <main class="main-panel">
+        <header class="main-header">
+          <div class="header-left">
+            <div class="title-block">
+              <span class="title-label">Active conversation</span>
+              <span class="chat-name" id="selectedChatName">Select a chat</span>
+            </div>
+          </div>
+        </header>
+
+        <div class="main-body">
+          <section class="conversation" id="conversationArea"></section>
+
+          <footer class="composer">
+            <form class="composer-box" id="composerForm">
+              <input
+                id="messageInput"
+                class="composer-input"
+                type="text"
+                placeholder="Ask about your enterprise knowledge base..."
+                autocomplete="off"
+              />
+              <button class="send-button" type="submit">Send</button>
+            </form>
+          </footer>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      const API_BASE = 'http://localhost:8000';
+      const chatListEl = document.getElementById('chatList');
+      const conversationEl = document.getElementById('conversationArea');
+      const selectedChatNameEl = document.getElementById('selectedChatName');
+      const sidebarEl = document.getElementById('sidebar');
+      const messageInputEl = document.getElementById('messageInput');
+
+      const state = {
+        chats: [],
+        selectedChatId: null,
+        page: 1,
+        hasMore: true,
+        isLoading: false,
+        messageMap: {},
+        archivedMode: false,
+      };
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      function formatDate(dateString) {
+        if (!dateString) return 'just now';
+        return new Date(dateString).toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        });
+      }
+
+      function setSelectedChat(chatId) {
+        state.selectedChatId = chatId;
+
+        const selected = state.chats.find((chat) => chat.id === chatId);
+        selectedChatNameEl.textContent = selected ? selected.name : 'Select a chat';
+        renderChatList();
+        renderConversation();
+      }
+
+      function renderChatList() {
+        if (!state.chats.length) {
+          chatListEl.innerHTML = '<div class="empty-state">No chats available yet.</div>';
+          return;
+        }
+
+        chatListEl.innerHTML = state.chats
+          .map((chat) => {
+            const isActive = chat.id === state.selectedChatId;
+            return `
+              <div class="chat-item ${isActive ? 'active' : ''}" data-chat-id="${chat.id}">
+                <div class="chat-summary" data-chat-id="${chat.id}">
+                  <div class="chat-title">${escapeHtml(chat.name || 'Untitled chat')}</div>
+                  <div class="chat-meta">${formatDate(chat.updated_at)} • ${chat.archived ? 'Archived' : 'Active'}</div>
+                </div>
+                <div class="chat-actions">
+                  <button class="rename-btn" type="button" data-rename-id="${chat.id}" title="Rename chat">✎</button>
+                  <button class="archive-btn" type="button" data-archive-id="${chat.id}" title="${chat.archived ? 'Unarchive chat' : 'Archive chat'}">${chat.archived ? '↺' : '🗄'}</button>
+                  <button class="delete-btn" type="button" data-delete-id="${chat.id}" title="Delete chat">🗑</button>
+                </div>
+              </div>
+            `;
+          })
+          .join('');
+      }
+
+      function renderConversation() {
+        const selected = state.chats.find((chat) => chat.id === state.selectedChatId);
+        if (!selected) {
+          conversationEl.innerHTML = `
+            <div class="message-list">
+              <div class="empty-state">Choose a chat from the left panel or create a new one to start.</div>
+            </div>
+          `;
+          return;
+        }
+
+        const messages = state.messageMap[selected.id] || [
+          {
+            role: 'assistant',
+            text: 'This enterprise RAG workspace is ready. Ask about documents, policies, product notes, or operational runbooks.',
+          },
+        ];
+
+        conversationEl.innerHTML = `
+          <div class="message-list">
+            ${messages
+              .map(
+                (message) => `
+                  <div class="message ${message.role}">
+                    <span class="message-role">${message.role === 'user' ? 'You' : 'Assistant'}</span>
+                    <div>${escapeHtml(message.text)}</div>
+                  </div>
+                `,
+              )
+              .join('')}
+          </div>
+        `;
+      }
+
+      async function fetchChatsPage() {
+        if (state.isLoading || !state.hasMore) return;
+
+        state.isLoading = true;
+
+        try {
+          const response = await fetch(
+            `${API_BASE}/chats/?page=${state.page}&page_size=10&archived=${state.archivedMode}`
+          );
+          if (!response.ok) {
+            throw new Error('Failed to load chats');
+          }
+
+          const newChats = await response.json();
+          if (!Array.isArray(newChats)) {
+            throw new Error('Unexpected response format');
+          }
+
+          if (newChats.length === 0) {
+            state.hasMore = false;
+            return;
+          }
+
+          state.chats.push(...newChats);
+          if (!state.selectedChatId && newChats[0]) {
+            setSelectedChat(newChats[0].id);
+          }
+
+          state.page += 1;
+          renderChatList();
+        } catch (error) {
+          console.error(error);
+          chatListEl.innerHTML = '<div class="empty-state">Unable to load chats right now.</div>';
+        } finally {
+          state.isLoading = false;
+        }
+      }
+
+      async function createChat(name) {
+        const response = await fetch(`${API_BASE}/chats/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, archived: false }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Chat creation failed');
+        }
+
+        const createdChat = await response.json();
+        state.chats.unshift(createdChat);
+        state.page = Math.max(state.page, 2);
+        setSelectedChat(createdChat.id);
+        renderChatList();
+      }
+
+      async function renameChat(chatId, newName) {
+        const response = await fetch(`${API_BASE}/chats/${chatId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: newName }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Chat rename failed');
+        }
+
+        const updatedChat = await response.json();
+        const index = state.chats.findIndex((chat) => chat.id === chatId);
+        if (index >= 0) {
+          state.chats[index] = updatedChat;
+        }
+        if (state.selectedChatId === chatId) {
+          selectedChatNameEl.textContent = updatedChat.name;
+        }
+        renderChatList();
+        renderConversation();
+      }
+
+      async function archiveChat(chatId) {
+        const chat = state.chats.find((item) => item.id === chatId);
+        if (!chat) return;
+
+        const response = await fetch(`${API_BASE}/chats/${chatId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ archived: !chat.archived }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Chat archive failed');
+        }
+
+        const updatedChat = await response.json();
+        const index = state.chats.findIndex((item) => item.id === chatId);
+        if (index >= 0) {
+          state.chats[index] = updatedChat;
+        }
+        renderChatList();
+      }
+
+      async function deleteChat(chatId) {
+        const confirmed = window.confirm('Delete this chat permanently?');
+        if (!confirmed) return;
+
+        const response = await fetch(`${API_BASE}/chats/${chatId}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          throw new Error('Chat delete failed');
+        }
+
+        state.chats = state.chats.filter((chat) => chat.id !== chatId);
+        if (state.selectedChatId === chatId) {
+          state.selectedChatId = state.chats[0]?.id || null;
+          selectedChatNameEl.textContent = state.selectedChatId ? state.chats[0].name : 'Select a chat';
+        }
+        renderChatList();
+        renderConversation();
+      }
+
+      function getSelectedChat() {
+        return state.chats.find((chat) => chat.id === state.selectedChatId) || null;
+      }
+
+      function refreshChatsList() {
+        state.chats = [];
+        state.page = 1;
+        state.hasMore = true;
+        state.selectedChatId = null;
+        selectedChatNameEl.textContent = 'Select a chat';
+        renderChatList();
+        fetchChatsPage();
+      }
+
+      document.getElementById('archivedToggle').addEventListener('click', () => {
+        state.archivedMode = !state.archivedMode;
+        const button = document.getElementById('archivedToggle');
+        button.textContent = state.archivedMode ? 'Back to active chats' : 'Archived chats';
+        refreshChatsList();
+      });
+
+      document.getElementById('newChatButton').addEventListener('click', async () => {
+        const name = window.prompt('Name your new chat', 'New RAG thread');
+        if (!name || !name.trim()) return;
+
+        try {
+          await createChat(name.trim());
+        } catch (error) {
+          console.error(error);
+          window.alert('New chat could not be created.');
+        }
+      });
+
+      chatListEl.addEventListener('click', (event) => {
+        const renameButton = event.target.closest('[data-rename-id]');
+        const archiveButton = event.target.closest('[data-archive-id]');
+        const deleteButton = event.target.closest('[data-delete-id]');
+        const chatItem = event.target.closest('[data-chat-id]');
+
+        if (renameButton) {
+          const chatId = renameButton.getAttribute('data-rename-id');
+          const chat = state.chats.find((item) => item.id === chatId);
+          if (!chat) return;
+          const nextName = window.prompt('Rename chat', chat.name);
+          if (!nextName || !nextName.trim()) return;
+          renameChat(chatId, nextName.trim());
+          return;
+        }
+
+        if (archiveButton) {
+          const chatId = archiveButton.getAttribute('data-archive-id');
+          archiveChat(chatId);
+          return;
+        }
+
+        if (deleteButton) {
+          const chatId = deleteButton.getAttribute('data-delete-id');
+          deleteChat(chatId);
+          return;
+        }
+
+        if (chatItem) {
+          const chatId = chatItem.getAttribute('data-chat-id');
+          if (chatId) {
+            setSelectedChat(chatId);
+          }
+        }
+      });
+
+      chatListEl.addEventListener('scroll', () => {
+        const nearBottom =
+          chatListEl.scrollTop + chatListEl.clientHeight >= chatListEl.scrollHeight - 24;
+        if (nearBottom) {
+          fetchChatsPage();
+        }
+      });
+
+      function toggleSidebar(forceExpand) {
+        const shouldExpand = typeof forceExpand === 'boolean' ? forceExpand : !sidebarEl.classList.contains('collapsed');
+        sidebarEl.classList.toggle('collapsed', !shouldExpand);
+      }
+
+      document.getElementById('toggleSidebar').addEventListener('click', () => {
+        if (sidebarEl.classList.contains('collapsed')) {
+          toggleSidebar(true);
+        }
+      });
+
+      document.getElementById('toggleSidebarSecondary').addEventListener('click', () => {
+        toggleSidebar(false);
+      });
+
+      document.getElementById('composerForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        const selectedChat = getSelectedChat();
+        if (!selectedChat) {
+          window.alert('Please select a chat first.');
+          return;
+        }
+
+        const text = messageInputEl.value.trim();
+        if (!text) return;
+
+        if (!state.messageMap[selectedChat.id]) {
+          state.messageMap[selectedChat.id] = [];
+        }
+
+        state.messageMap[selectedChat.id].push({ role: 'user', text });
+        state.messageMap[selectedChat.id].push({
+          role: 'assistant',
+          text: 'I can answer this by searching the enterprise knowledge base and summarizing the relevant sources for your team.',
+        });
+
+        messageInputEl.value = '';
+        renderConversation();
+      });
+
+      fetchChatsPage();
+    </script>
+  </body>
+</html>

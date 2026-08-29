@@ -17,12 +17,13 @@ class ChatRepository:
     def get_by_id(self, chat_id: uuid.UUID):
         return self.db.get(Chat, chat_id)
 
-    def get_all(self, page: int = 1, page_size: int = 10):
+    def get_all(self, page: int = 1, page_size: int = 10, archived: bool = False):
         offset = (page - 1) * page_size
         return self.db.scalars(
             select(Chat)
             .offset(offset)
             .limit(page_size)
+            .where(Chat.archived == archived)
             .order_by(Chat.updated_at.desc())
         ).all()
 
