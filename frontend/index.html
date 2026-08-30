@@ -199,6 +199,41 @@
         overflow-y: auto;
         padding: 8px 10px 16px;
         scrollbar-width: thin;
+        scrollbar-color: rgba(160, 180, 210, 0.38) transparent;
+      }
+
+      .chat-list::-webkit-scrollbar,
+      .conversation::-webkit-scrollbar,
+      .documents-view::-webkit-scrollbar,
+      .document-list::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+
+      .chat-list::-webkit-scrollbar-track,
+      .conversation::-webkit-scrollbar-track,
+      .documents-view::-webkit-scrollbar-track,
+      .document-list::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .chat-list::-webkit-scrollbar-thumb,
+      .conversation::-webkit-scrollbar-thumb,
+      .documents-view::-webkit-scrollbar-thumb,
+      .document-list::-webkit-scrollbar-thumb {
+        background: rgba(160, 180, 210, 0.35);
+        border-radius: 999px;
+        border: 2px solid transparent;
+        background-clip: padding-box;
+      }
+
+      .chat-list::-webkit-scrollbar-thumb:hover,
+      .conversation::-webkit-scrollbar-thumb:hover,
+      .documents-view::-webkit-scrollbar-thumb:hover,
+      .document-list::-webkit-scrollbar-thumb:hover {
+        background: rgba(160, 180, 210, 0.55);
+        border: 2px solid transparent;
+        background-clip: padding-box;
       }
 
       .chat-item {
@@ -321,6 +356,28 @@
         font-weight: 700;
       }
 
+      .main-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .view-toggle {
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.02);
+        color: var(--muted);
+        border-radius: 10px;
+        padding: 8px 12px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      .view-toggle.active {
+        background: rgba(112, 208, 255, 0.12);
+        border-color: rgba(112, 208, 255, 0.35);
+        color: var(--text);
+      }
+
       .main-body {
         flex: 1;
         display: flex;
@@ -332,6 +389,17 @@
         flex: 1;
         overflow-y: auto;
         padding: 18px 22px 10px;
+      }
+
+      .documents-view {
+        flex: 1;
+        overflow-y: auto;
+        padding: 18px 22px 10px;
+      }
+
+      .documents-view.hidden,
+      .conversation.hidden {
+        display: none;
       }
 
       .message-list {
@@ -372,6 +440,110 @@
         color: var(--muted);
       }
 
+      .document-panel {
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+        background: rgba(15, 25, 38, 0.78);
+        padding: 14px 22px 12px;
+      }
+
+      .document-header {
+        max-width: 920px;
+        margin: 0 auto 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .document-header h2 {
+        margin: 0;
+        font-size: 0.8rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 700;
+      }
+
+      .document-count {
+        color: var(--muted);
+        font-size: 0.78rem;
+      }
+
+      .document-list {
+        max-width: 920px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .document-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: rgba(17, 30, 44, 0.7);
+        padding: 10px 12px;
+      }
+
+      .document-main {
+        min-width: 0;
+        flex: 1;
+      }
+
+      .document-name {
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .document-meta {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 0.74rem;
+      }
+
+      .document-status {
+        min-width: 78px;
+        text-align: center;
+        padding: 6px 8px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: transform 0.15s ease, filter 0.15s ease;
+      }
+
+      .document-status:hover {
+        filter: brightness(1.08);
+        transform: translateY(-1px);
+      }
+
+      .document-status.active {
+        background: rgba(126, 240, 199, 0.12);
+        border-color: rgba(126, 240, 199, 0.35);
+        color: var(--accent-2);
+      }
+
+      .document-status.inactive {
+        background: rgba(255, 122, 122, 0.08);
+        border-color: rgba(255, 122, 122, 0.26);
+        color: #ffb8b8;
+      }
+
+      .empty-document {
+        padding: 24px 10px;
+        border: 1px dashed var(--border);
+        border-radius: 12px;
+        text-align: center;
+        color: var(--muted);
+      }
+
       .composer {
         border-top: 1px solid var(--border);
         padding: 16px 22px 20px;
@@ -402,6 +574,21 @@
 
       .composer-input::placeholder {
         color: var(--muted);
+      }
+
+      .upload-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        min-width: 150px;
+      }
+
+      .upload-icon {
+        font-size: 1rem;
+        line-height: 1;
       }
 
       .send-button {
@@ -468,13 +655,29 @@
               <span class="chat-name" id="selectedChatName">Select a chat</span>
             </div>
           </div>
+
+          <div class="main-header-actions">
+            <button class="view-toggle active" id="chatViewToggle" type="button">Chat</button>
+            <button class="view-toggle" id="documentsViewToggle" type="button">Documents</button>
+          </div>
         </header>
 
         <div class="main-body">
           <section class="conversation" id="conversationArea"></section>
 
+          <section class="documents-view hidden" id="documentsView" aria-live="polite">
+            <div class="document-panel">
+              <div class="document-header">
+                <h2>Uploaded documents</h2>
+                <span id="documentCount" class="document-count">0 documents</span>
+              </div>
+              <div class="document-list" id="documentList"></div>
+            </div>
+          </section>
+
           <footer class="composer">
             <form class="composer-box" id="composerForm">
+              <input type="file" id="documentInput" hidden />
               <input
                 id="messageInput"
                 class="composer-input"
@@ -482,6 +685,10 @@
                 placeholder="Ask about your enterprise knowledge base..."
                 autocomplete="off"
               />
+              <button class="ghost-button upload-button" id="uploadDocumentButton" type="button">
+                <span class="upload-icon" aria-hidden="true">📑</span>
+                <span>Upload</span>
+              </button>
               <button class="send-button" type="submit">Send</button>
             </form>
           </footer>
@@ -496,6 +703,14 @@
       const selectedChatNameEl = document.getElementById('selectedChatName');
       const sidebarEl = document.getElementById('sidebar');
       const messageInputEl = document.getElementById('messageInput');
+      const documentListEl = document.getElementById('documentList');
+      const documentCountEl = document.getElementById('documentCount');
+      const documentInputEl = document.getElementById('documentInput');
+      const uploadDocumentButtonEl = document.getElementById('uploadDocumentButton');
+      const chatViewEl = document.getElementById('conversationArea');
+      const documentsViewEl = document.getElementById('documentsView');
+      const chatViewToggleEl = document.getElementById('chatViewToggle');
+      const documentsViewToggleEl = document.getElementById('documentsViewToggle');
 
       const state = {
         chats: [],
@@ -506,6 +721,11 @@
         messageMap: {},
         messagePaging: {},
         archivedMode: false,
+        documents: [],
+        documentPage: 1,
+        documentHasMore: true,
+        documentLoading: false,
+        activeView: 'chat',
       };
 
       function isNearBottom(container, threshold = 60) {
@@ -525,6 +745,12 @@
         const messagePaging = getMessagePaging(selectedChat.id);
         if (messagePaging.hasMore && !messagePaging.isLoading && isNearBottom(conversationEl, 80)) {
           fetchMessagesForChat(selectedChat.id, false);
+        }
+      }
+
+      function maybeLoadMoreDocuments() {
+        if (state.documentHasMore && !state.documentLoading && isNearBottom(documentsViewEl, 80)) {
+          fetchDocumentsPage(false);
         }
       }
 
@@ -576,8 +802,8 @@
                 </div>
                 <div class="chat-actions">
                   <button class="rename-btn" type="button" data-rename-id="${chat.id}" title="Rename chat">✎</button>
-                  <button class="archive-btn" type="button" data-archive-id="${chat.id}" title="${chat.archived ? 'Unarchive chat' : 'Archive chat'}">${chat.archived ? '↺' : '🗄'}</button>
-                  <button class="delete-btn" type="button" data-delete-id="${chat.id}" title="Delete chat">🗑</button>
+                  <button class="archive-btn" type="button" data-archive-id="${chat.id}" title="${chat.archived ? 'Unarchive chat' : 'Archive chat'}">${chat.archived ? '↺' : '📩'}</button>
+                  <button class="delete-btn" type="button" data-delete-id="${chat.id}" title="Delete chat">🗑️</button>
                 </div>
               </div>
             `;
@@ -633,6 +859,46 @@
               .join('')}
           </div>
         `;
+      }
+
+      function renderActiveView() {
+        const isChat = state.activeView === 'chat';
+        chatViewEl.classList.toggle('hidden', !isChat);
+        documentsViewEl.classList.toggle('hidden', isChat);
+        chatViewToggleEl.classList.toggle('active', isChat);
+        documentsViewToggleEl.classList.toggle('active', !isChat);
+      }
+
+      function renderDocuments() {
+        documentCountEl.textContent = `${state.documents.length} document${state.documents.length === 1 ? '' : 's'}`;
+
+        if (!state.documents.length) {
+          documentListEl.innerHTML = '<div class="empty-document">No documents uploaded yet.</div>';
+          return;
+        }
+
+        documentListEl.innerHTML = state.documents
+          .map(
+            (document) => `
+              <div class="document-item" data-document-id="${document.id}">
+                <div class="document-main">
+                  <div class="document-name">${escapeHtml(document.filename || 'Untitled document')}</div>
+                  <div class="document-meta">${formatDate(document.created_at)} • ${escapeHtml(document.status || 'uploaded')}</div>
+                </div>
+                <span
+                  class="document-status ${document.active ? 'active' : 'inactive'}"
+                  data-document-toggle="${document.id}"
+                  tabindex="0"
+                  role="button"
+                  aria-pressed="${Boolean(document.active)}"
+                  aria-label="Toggle document active state for ${escapeHtml(document.filename || 'Untitled document')}"
+                >
+                  ${document.active ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+            `,
+          )
+          .join('');
       }
 
       function getMessagePaging(chatId) {
@@ -745,6 +1011,42 @@
         }
       }
 
+      async function fetchDocumentsPage(reset = false) {
+        if (state.documentLoading || (!reset && !state.documentHasMore)) return;
+
+        state.documentLoading = true;
+
+        try {
+          const page = reset ? 1 : state.documentPage;
+          const response = await fetch(`${API_BASE}/documents/?page=${page}&page_size=15`);
+          if (!response.ok) {
+            throw new Error('Failed to load documents');
+          }
+
+          const documents = await response.json();
+          if (!Array.isArray(documents)) {
+            throw new Error('Unexpected document response format');
+          }
+
+          if (reset) {
+            state.documents = documents;
+            state.documentPage = 2;
+          } else {
+            state.documents.push(...documents);
+            state.documentPage += 1;
+          }
+
+          state.documentHasMore = documents.length >= 15;
+          renderDocuments();
+        } catch (error) {
+          console.error(error);
+          state.documentHasMore = false;
+          documentListEl.innerHTML = '<div class="empty-document">Unable to load documents right now.</div>';
+        } finally {
+          state.documentLoading = false;
+        }
+      }
+
       async function createChat(name) {
         const response = await fetch(`${API_BASE}/chats/`, {
           method: 'POST',
@@ -833,6 +1135,102 @@
         return state.chats.find((chat) => chat.id === state.selectedChatId) || null;
       }
 
+      async function ensureChatSelected() {
+        if (state.selectedChatId) {
+          const selected = state.chats.find((chat) => chat.id === state.selectedChatId);
+          if (selected) return selected;
+        }
+
+        const fallbackName = 'New Chat';
+        const response = await fetch(`${API_BASE}/chats/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: fallbackName, archived: false }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Chat creation failed');
+        }
+
+        const createdChat = await response.json();
+        state.chats.unshift(createdChat);
+        state.page = Math.max(state.page, 2);
+        setSelectedChat(createdChat.id);
+        renderChatList();
+        return createdChat;
+      }
+
+      async function postUserMessage(chatId, content) {
+        const response = await fetch(`${API_BASE}/chats/${chatId}/messages/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content, role: 'user' }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || 'Message creation failed');
+        }
+
+        const messagePaging = getMessagePaging(chatId);
+        messagePaging.page = 1;
+        messagePaging.hasMore = true;
+        await fetchMessagesForChat(chatId, true);
+      }
+
+      async function uploadDocument(file) {
+        try {
+          const selectedChat = await ensureChatSelected();
+          const formData = new FormData();
+          formData.append('file', file);
+
+          const response = await fetch(`${API_BASE}/documents/`, {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || 'Document upload failed');
+          }
+
+          const uploadedDocument = await response.json();
+          state.documents = [uploadedDocument, ...state.documents.filter((doc) => doc.id !== uploadedDocument.id)];
+          renderDocuments();
+
+          await postUserMessage(selectedChat.id, `${file.name} was uploaded`);
+          documentInputEl.value = '';
+        } catch (error) {
+          console.error(error);
+          window.alert('The document could not be uploaded.');
+        }
+      }
+
+      async function toggleDocumentActiveStatus(documentId) {
+        const document = state.documents.find((item) => item.id === documentId);
+        if (!document) return;
+
+        try {
+          const response = await fetch(`${API_BASE}/documents/${documentId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ active: !document.active }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || 'Document update failed');
+          }
+
+          const updatedDocument = await response.json();
+          state.documents = state.documents.map((item) => (item.id === documentId ? updatedDocument : item));
+          renderDocuments();
+        } catch (error) {
+          console.error(error);
+          window.alert('The document state could not be updated.');
+        }
+      }
+
       function refreshChatsList() {
         state.chats = [];
         state.page = 1;
@@ -848,6 +1246,16 @@
         const button = document.getElementById('archivedToggle');
         button.textContent = state.archivedMode ? 'Back to active chats' : 'Archived chats';
         refreshChatsList();
+      });
+
+      chatViewToggleEl.addEventListener('click', () => {
+        state.activeView = 'chat';
+        renderActiveView();
+      });
+
+      documentsViewToggleEl.addEventListener('click', () => {
+        state.activeView = 'documents';
+        renderActiveView();
       });
 
       document.getElementById('newChatButton').addEventListener('click', async () => {
@@ -898,12 +1306,30 @@
         }
       });
 
+      documentListEl.addEventListener('click', (event) => {
+        const toggle = event.target.closest('[data-document-toggle]');
+        if (!toggle) return;
+        toggleDocumentActiveStatus(toggle.getAttribute('data-document-toggle'));
+      });
+
+      documentListEl.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        const toggle = event.target.closest('[data-document-toggle]');
+        if (!toggle) return;
+        event.preventDefault();
+        toggleDocumentActiveStatus(toggle.getAttribute('data-document-toggle'));
+      });
+
       chatListEl.addEventListener('scroll', () => {
         maybeLoadMoreChats();
       });
 
       conversationEl.addEventListener('scroll', () => {
         maybeLoadMoreMessages();
+      });
+
+      documentsViewEl.addEventListener('scroll', () => {
+        maybeLoadMoreDocuments();
       });
 
       function toggleSidebar(forceExpand) {
@@ -921,44 +1347,34 @@
         toggleSidebar(false);
       });
 
+      uploadDocumentButtonEl.addEventListener('click', () => {
+        documentInputEl.click();
+      });
+
+      documentInputEl.addEventListener('change', (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        uploadDocument(file);
+      });
+
       document.getElementById('composerForm').addEventListener('submit', async (event) => {
         event.preventDefault();
-        const selectedChat = getSelectedChat();
-        if (!selectedChat) {
-          window.alert('Please select a chat first.');
-          return;
-        }
-
         const text = messageInputEl.value.trim();
         if (!text) return;
 
         try {
-          const response = await fetch(`${API_BASE}/chats/${selectedChat.id}/messages/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              content: text,
-              role: 'user',
-            }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.detail || 'Message creation failed');
-          }
-
+          const selectedChat = await ensureChatSelected();
           messageInputEl.value = '';
-          const messagePaging = getMessagePaging(selectedChat.id);
-          messagePaging.page = 1;
-          messagePaging.hasMore = true;
-          await fetchMessagesForChat(selectedChat.id, true);
+          await postUserMessage(selectedChat.id, text);
         } catch (error) {
           console.error(error);
           window.alert('Your message could not be sent.');
         }
       });
 
+      renderActiveView();
       fetchChatsPage();
+      fetchDocumentsPage(true);
     </script>
   </body>
 </html>
