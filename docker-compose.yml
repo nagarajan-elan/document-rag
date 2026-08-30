@@ -11,7 +11,7 @@ services:
       minio:
         condition: service_started
       kafka:
-        condition: service_started
+        condition: service_healthy
     command: fastapi dev main.py --host 0.0.0.0 --port 8000
 
   postgres:
@@ -71,13 +71,25 @@ services:
       KAFKA_NUM_PARTITIONS: 1
       KAFKA_LOG_RETENTION_HOURS: 24
       KAFKA_LOG_SEGMENT_BYTES: 52428800
-  # document-watcher:
-  #   build: ./workers/document-watcher
-  #   depends_on:
-  #     kafka:
-  #       condition: service_started
-  #   environment:
-  #     KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-  #     KAFKA_CLIENT_ID: document-watcher
-  #     KAFKA_DOCUMENT_PARSING_TOPIC: document-parsing
-  #   command: python main.py
+    healthcheck:
+      test: [ "CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1 || exit 1" ]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 20s
+
+  document-watcher:
+    build: ./workers/document-watcher
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_CLIENT_ID: document-watcher
+      KAFKA_DOCUMENT_PARSING_TOPIC: document-parsing
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: appdb
+      DB_USER: app
+      DB_PASSWORD: app
+    command: python main.py
