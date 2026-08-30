@@ -1,5 +1,6 @@
 fastapi[standard]
 sqlalchemy==2.0.52
+psycopg[binary]==3.2.1
 uuid-utils
 python-multipart
 minio

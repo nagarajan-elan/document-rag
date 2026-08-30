@@ -46,7 +46,6 @@ def upload_document(
             status="uploaded", filename=file.filename, object_key=object_key
         )
     )
-    # TODO: Push to queue for processing (chunking, embedding, etc.)
     return document
 
 

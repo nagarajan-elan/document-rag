@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     MINIO_BUCKET: str
     MINIO_SECURE: bool = False
 
+    DATABASE_URL: str
+
     class Config:
         env_file = ".env"
 

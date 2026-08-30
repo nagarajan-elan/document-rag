@@ -1,4 +1,4 @@
-import uuid_utils as uuid
+import uuid
 from sqlalchemy import Uuid, DateTime
 from datetime import datetime
 from sqlalchemy.orm import Mapped, mapped_column
@@ -10,7 +10,7 @@ class Chat(Base):
     __tablename__ = "chats"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid7
+        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     name: Mapped[str]
     archived: Mapped[bool] = mapped_column(default=False)
