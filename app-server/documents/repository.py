@@ -1,6 +1,7 @@
 import uuid
 from db.session import get_db
 from .models import Document
+from jobs.models import Job
 from fastapi import Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -27,6 +28,14 @@ class DocumentRepository:
     def create(self, data: DocumentCreatePayload):
         document = Document(**data.model_dump())
         self.db.add(document)
+        self.db.flush()  # document.id is now available
+        
+        job = Job(
+            document_id=document.id,
+            type="document_extraction",
+            status="pending",
+        )
+        self.db.add(job)
         self.db.commit()
         self.db.refresh(document)
         return document

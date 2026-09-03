@@ -1,11 +1,9 @@
-import json
 import os
 import time
 import logging
 import psycopg
 
-from typing import Any
-from kafka import KafkaProducer
+from helpers import process_document
 
 logging.basicConfig(
     level=logging.INFO,
@@ -15,27 +13,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 logger.info("Document watcher starting...")
 
-producer = KafkaProducer(
-    bootstrap_servers=os.getenv("KAFKA_BOOTSTRAP_SERVERS").split(","),
-    client_id=os.getenv("KAFKA_CLIENT_ID"),
-    value_serializer=lambda v: json.dumps(v).encode("utf-8"),
-    key_serializer=lambda k: k.encode("utf-8") if isinstance(k, str) else k,
-    acks="all",
-    retries=3,
-    linger_ms=10,
-)
-KAFKA_DOCUMENT_PARSING_TOPIC = os.getenv("KAFKA_DOCUMENT_PARSING_TOPIC")
 
-
-def publish_event(topic: str, payload: dict[str, Any], key: str | None = None) -> None:
-    try:
-        producer.send(topic=topic, key=key, value=payload)
-        producer.flush()
-    except Exception:
-        pass
-
-
-def get_uploaded_documents_from_db():
+def get_uploaded_document_from_db():
     conn = psycopg.connect(
         host=os.getenv("DB_HOST", "localhost"),
         port=os.getenv("DB_PORT", "5432"),
@@ -48,48 +27,52 @@ def get_uploaded_documents_from_db():
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT id, filename, object_key, created_at
-                FROM documents
-                ORDER BY created_at DESC;
+                WITH locked AS (
+                    SELECT id
+                    FROM jobs
+                    WHERE status = 'pending'
+                    AND next_attempt_at <= NOW()
+                    AND type = 'document_extraction'
+                    AND attempts < 3
+                    ORDER BY created_at ASC
+                    FOR UPDATE SKIP LOCKED
+                    LIMIT 1
+                )
+                UPDATE jobs j
+                SET status = 'processing', last_attempted_at = NOW(), attempts = attempts + 1, next_attempt_at = NOW() + INTERVAL '5 minutes'
+                FROM locked
+                WHERE j.id = locked.id
+                RETURNING j.id, j.document_id;
             """
             )
 
-            return cursor.fetchall()
+            document = cursor.fetchone()
+            conn.commit()  # Commit the transaction to release the lock
+            return document
     finally:
         conn.close()
 
 
 def main():
     logger.info("Starting document watcher loop...")
-    try:
-        while True:
-            logger.info("Fetching uploaded documents from the database...")
-            documents = get_uploaded_documents_from_db()
+    while True:
+        time.sleep(5)  # Sleep for 5 seconds before the next fetch
+        logger.info("Fetching uploaded documents from the database...")
+        try:
+            document = get_uploaded_document_from_db()
+            if not document:
+                logger.info(
+                    "No uploaded documents found. Waiting for the next fetch..."
+                )
+                continue
 
-            for document in documents:
-                logger.info(f"Processing document: {document}")
+            logger.info(f"Processing document: {document}")
+            document_id = document[1]
+            process_document(document_id)
 
-                payload = {
-                    "event": "document.uploaded",
-                    "document_id": str(document[0]),
-                    "filename": document[1],
-                    "object_key": document[2],
-                    "created_at": document[3].isoformat(),
-                }
-
-                try:
-                    producer.send(topic=KAFKA_DOCUMENT_PARSING_TOPIC, value=payload)
-                    producer.flush()
-                    logger.info(
-                        f"Published event to topic '{KAFKA_DOCUMENT_PARSING_TOPIC}': {payload}"
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to publish event: {e}")
-
-            time.sleep(5)  # Sleep for 5 seconds before the next fetch
-
-    except Exception as e:
-        logger.error(f"Error fetching documents: {e}")
+        except Exception as e:
+            logger.error(f"Error while processing document: {e}")
+            continue
 
 
 if __name__ == "__main__":
