@@ -60,3 +60,17 @@ services:
           memory: 4G
         reservations:
           memory: 2G
+
+  document-chunk-embedder:
+    container_name: rag-document-chunk-embedder
+    build: ./workers/document-chunk-embedder
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: appdb
+      DB_USER: app
+      DB_PASSWORD: app
+    command: python main.py
+    depends_on:
+      postgres:
+        condition: service_healthy

@@ -65,7 +65,8 @@ def create_document_chunk_records(document_id: str, chunks: list):
                 cursor.execute(
                     """
                     INSERT INTO document_chunks (document_id, chunk_index, status, headers, content, page_start, page_end)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s);
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id;
                 """,
                     (
                         document_id,
@@ -76,6 +77,14 @@ def create_document_chunk_records(document_id: str, chunks: list):
                         chunk["page_start"],
                         chunk["page_end"],
                     ),
+                )
+                chunk_id = cursor.fetchone()[0]
+                cursor.execute(
+                    """
+                    INSERT INTO jobs (document_id, chunk_id, type, status)
+                    VALUES (%s, %s, 'document_chunk_embedding', 'pending');
+                    """,
+                    (document_id, chunk_id),
                 )
             conn.commit()
             logger.info(f"Inserted {len(chunks)} chunks for document_id: {document_id}")

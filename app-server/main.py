@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from chats.router import router as chats_router
+from document_chunks.router import router as document_chunks_router
 from documents.router import router as documents_router
 
 # TODO: Remove below import once db migrations are handled separately
@@ -32,6 +33,7 @@ app.add_middleware(
 
 app.include_router(chats_router)
 app.include_router(documents_router)
+app.include_router(document_chunks_router)
 
 
 @app.get("/")

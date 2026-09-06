@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Uuid, DateTime, String, ForeignKey
+from sqlalchemy import Uuid, DateTime, String, ForeignKey, text
 from datetime import datetime
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -10,19 +10,31 @@ class Job(Base):
     __tablename__ = "jobs"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=text("gen_random_uuid()"),
     )
     document_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("documents.id", ondelete="no action")
     )
+    chunk_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("document_chunks.id", ondelete="no action"), nullable=True
+    )
     type: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+        DateTime(timezone=True),
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
     )
-    attempts: Mapped[int] = mapped_column(nullable=False, default=0)
+    attempts: Mapped[int] = mapped_column(
+        nullable=False, default=0, server_default=text("0")
+    )
     next_attempt_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+        DateTime(timezone=True),
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
     )
     last_attempted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=True
