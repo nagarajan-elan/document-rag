@@ -1,0 +1,5 @@
+docling
+minio
+pypdf
+psycopg[binary]==3.2.1
+transformers
