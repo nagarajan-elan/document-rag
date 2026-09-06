@@ -15,3 +15,10 @@ SessionLocal = sessionmaker(
 def get_db():
     with SessionLocal() as session:
         yield session
+
+
+# TODO: Move to a migration script later
+from sqlalchemy import text
+
+with engine.begin() as conn:
+    conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))

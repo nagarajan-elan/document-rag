@@ -1,9 +1,8 @@
 import os
 import time
 import logging
+import multiprocessing
 import psycopg
-
-from helpers import process_document
 
 logging.basicConfig(
     level=logging.INFO,
@@ -12,6 +11,28 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 logger.info("Document watcher starting...")
+
+
+def _process_document_child(document_id):
+    from helpers import process_document
+
+    try:
+        process_document(document_id)
+    except BaseException:
+        logger.exception("Document processing child failed for document_id: %s", document_id)
+        raise
+
+
+def process_document_isolated(document_id):
+    context = multiprocessing.get_context("spawn")
+    process = context.Process(target=_process_document_child, args=(document_id,))
+    process.start()
+    process.join()
+    exitcode = process.exitcode
+    process.close()
+
+    if exitcode != 0:
+        raise RuntimeError(f"Document processing child exited with status {exitcode}")
 
 
 def get_uploaded_document_from_db():
@@ -68,10 +89,10 @@ def main():
 
             logger.info(f"Processing document: {document}")
             document_id = document[1]
-            process_document(document_id)
+            process_document_isolated(document_id)
 
         except Exception as e:
-            logger.error(f"Error while processing document: {e}")
+            logger.exception("Error while processing document: %s", e)
             continue
 
 

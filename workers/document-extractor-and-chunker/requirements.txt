@@ -1,5 +1,4 @@
 docling
 minio
-pypdf
 psycopg[binary]==3.2.1
-transformers
+torch==2.14.0+cpu

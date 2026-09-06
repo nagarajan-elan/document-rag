@@ -2,8 +2,10 @@ import logging
 import tempfile
 import os
 from minio import Minio
-from pypdf import PdfReader
 import psycopg
+from docling.document_converter import DocumentConverter
+from docling.chunking import HybridChunker
+
 
 minio_client = Minio(
     endpoint=os.getenv("MINIO_ENDPOINT"),
@@ -11,9 +13,74 @@ minio_client = Minio(
     secret_key=os.getenv("MINIO_SECRET_KEY"),
     secure=os.getenv("MINIO_SECURE") == "true",
 )
+converter = DocumentConverter()
 
 
 logger = logging.getLogger(__name__)
+
+
+def chunk_document(file_path: str):
+    # 1. Convert File -> DoclingDocument
+    conv = converter.convert(file_path)
+    doc = conv.document
+
+    # 2. Structure-aware + token-aware chunking
+    chunker = HybridChunker()
+    chunks = list(chunker.chunk(doc))
+    result = []
+
+    # 3. Inspect chunks
+    for i, chunk in enumerate(chunks):
+        headings = chunk.meta.headings or []
+        breadcrumb = " > ".join(headings)
+        pages = sorted({p.page_no for it in chunk.meta.doc_items for p in it.prov})
+
+        result.append(
+            {
+                "chunk_index": i,
+                "headers": breadcrumb,
+                "content": chunk.text,
+                "page_start": pages[0],
+                "page_end": pages[-1],
+            }
+        )
+
+    return result
+
+
+def create_document_chunk_records(document_id: str, chunks: list):
+    """
+    Create document chunk records in the database for the given document_id and chunks.
+    """
+    conn = psycopg.connect(
+        host=os.getenv("DB_HOST", "localhost"),
+        port=os.getenv("DB_PORT", "5432"),
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+    )
+    try:
+        with conn.cursor() as cursor:
+            for chunk in chunks:
+                cursor.execute(
+                    """
+                    INSERT INTO document_chunks (document_id, chunk_index, status, headers, content, page_start, page_end)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s);
+                """,
+                    (
+                        document_id,
+                        chunk["chunk_index"],
+                        "pending",
+                        chunk["headers"],
+                        chunk["content"],
+                        chunk["page_start"],
+                        chunk["page_end"],
+                    ),
+                )
+            conn.commit()
+            logger.info(f"Inserted {len(chunks)} chunks for document_id: {document_id}")
+    finally:
+        conn.close()
 
 
 def get_document(document_id: str):
@@ -40,17 +107,9 @@ def get_document(document_id: str):
         conn.close()
 
 
-def process_file_from_disk(file_path: str, extension: str):
+def get_chunks_from_document(file_path: str, extension: str):
     if extension == ".pdf":
-        # Placeholder for PDF processing logic
-        # Read PDF
-        reader = PdfReader(file_path)
-        text = ""
-        for page in reader.pages:
-            page_text = page.extract_text() or ""
-            text += page_text
-
-        return text
+        return chunk_document(file_path)
     else:
         raise ValueError(f"Unsupported file type for processing: {file_path}")
 
@@ -80,14 +139,10 @@ def process_document(document_id: str):
         )
         # Now process the file
         extension = os.path.splitext(filename)[1].lower()
-        result = process_file_from_disk(temp_path, extension=extension)
-        logger.info(f"Document processed successfully. Result: {result}")
+        chunks = get_chunks_from_document(temp_path, extension=extension)
+        logger.info(f"Document processed successfully. Result: {chunks}")
 
-        # TODO: Make text as chunks and store
-        return {
-            "status": "success",
-            "result": result,
-        }
+        create_document_chunk_records(document_id, chunks)
 
     except Exception as e:
         raise RuntimeError(f"Failed to process document {document_id}: {e}") from e

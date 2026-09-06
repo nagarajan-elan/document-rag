@@ -1,5 +1,6 @@
 services:
   api:
+    container_name: rag-fastapi
     build: ./app-server
     ports:
       - "8000:8000"
@@ -13,7 +14,7 @@ services:
     command: fastapi dev main.py --host 0.0.0.0 --port 8000
 
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: rag-postgres
     restart: unless-stopped
     environment:
@@ -39,8 +40,9 @@ services:
       - "9000:9000"
       - "9001:9001"
 
-  document-watcher:
-    build: ./workers/document-watcher
+  document-extractor-and-chunker:
+    container_name: rag-document-extractor-and-chunker
+    build: ./workers/document-extractor-and-chunker
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -52,3 +54,9 @@ services:
       MINIO_SECRET_KEY: minioadmin123
       MINIO_SECURE: false
     command: python main.py
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
