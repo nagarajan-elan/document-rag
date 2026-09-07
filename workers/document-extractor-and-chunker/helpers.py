@@ -61,31 +61,33 @@ def create_document_chunk_records(document_id: str, chunks: list):
     )
     try:
         with conn.cursor() as cursor:
-            for chunk in chunks:
+            for i, chunk in enumerate(chunks, start=1):
                 cursor.execute(
                     """
-                    INSERT INTO document_chunks (document_id, chunk_index, status, headers, content, page_start, page_end)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id;
-                """,
+                    INSERT INTO document_chunks (document_id, chunk_index, headers, content, page_start, page_end)
+                    VALUES (%s, %s, %s, %s, %s, %s);
+                    """,
+                    # TODO: ON CONFLICT (document_id, chunk_index) DO NOTHING;
                     (
                         document_id,
                         chunk["chunk_index"],
-                        "pending",
                         chunk["headers"],
                         chunk["content"],
                         chunk["page_start"],
                         chunk["page_end"],
                     ),
                 )
-                chunk_id = cursor.fetchone()[0]
-                cursor.execute(
-                    """
-                    INSERT INTO jobs (document_id, chunk_id, type, status)
-                    VALUES (%s, %s, 'document_chunk_embedding', 'pending');
-                    """,
-                    (document_id, chunk_id),
-                )
+                if i % 20 == 0:
+                    logger.info(f"Inserted {i} chunks for document_id: {document_id}")
+                    conn.commit()  # Commit every 20 inserts to avoid long transactions
+            conn.commit()  # Final commit for any remaining inserts
+            cursor.execute(
+                """
+                INSERT INTO jobs (document_id, type, status)
+                VALUES (%s, 'document_chunks_embedding', 'pending');
+                """,
+                (document_id,),
+            )
             conn.commit()
             logger.info(f"Inserted {len(chunks)} chunks for document_id: {document_id}")
     finally:

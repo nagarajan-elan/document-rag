@@ -18,9 +18,6 @@ class Job(Base):
     document_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("documents.id", ondelete="no action")
     )
-    chunk_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("document_chunks.id", ondelete="no action"), nullable=True
-    )
     type: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -36,6 +33,7 @@ class Job(Base):
         server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
     )
+    locked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     last_attempted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

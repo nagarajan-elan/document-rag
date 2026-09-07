@@ -10,7 +10,6 @@ class DocumentChunkResponse(BaseModel):
     id: uuid.UUID
     document_id: uuid.UUID
     chunk_index: int
-    status: str
     headers: str | None
     content: str
     page_start: int

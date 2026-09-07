@@ -1,7 +1,7 @@
 import time
 import logging
 
-from helpers import claim_pending_chunks, store_embeddings
+from helpers import claim_pending_chunks, mark_document_as_completed, store_embeddings
 
 logging.basicConfig(
     level=logging.INFO,
@@ -18,16 +18,18 @@ def main():
         time.sleep(10)
         logger.info("Fetching pending document chunks from the database...")
         try:
-            jobs = claim_pending_chunks(batch_size=10)
-            if not jobs:
+            job_id, document_id, chunks = claim_pending_chunks()
+            if not chunks:
                 logger.info(
                     "No pending document chunks found. Waiting for the next fetch..."
                 )
                 continue
 
-            logger.info("Embedding %s document chunks", len(jobs))
-            store_embeddings(jobs)
-            logger.info("Finished embedding %s document chunks", len(jobs))
+            logger.info("Embedding %s document chunks", len(chunks))
+            store_embeddings(chunks)
+            logger.info("Finished embedding %s document chunks", len(chunks))
+
+            mark_document_as_completed(job_id, document_id)
 
         except Exception as e:
             logger.error("Error while embedding document chunks: %s", e)

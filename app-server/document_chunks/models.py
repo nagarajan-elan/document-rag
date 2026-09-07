@@ -20,7 +20,6 @@ class DocumentChunk(Base):
         ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
     )
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
-    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
     headers: Mapped[str] = mapped_column(String, nullable=True)
     content: Mapped[str] = mapped_column(String, nullable=False)
     embedding: Mapped[list[float]] = mapped_column(VECTOR(3), nullable=True)

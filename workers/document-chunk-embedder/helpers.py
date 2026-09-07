@@ -21,7 +21,7 @@ def get_connection():
     return conn
 
 
-def claim_pending_chunks(batch_size: int = 10):
+def claim_pending_chunks():
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
@@ -32,38 +32,40 @@ def claim_pending_chunks(batch_size: int = 10):
                     FROM jobs
                     WHERE status = 'pending'
                     AND next_attempt_at <= NOW()
-                    AND type = 'document_chunk_embedding'
-                    AND chunk_id IS NOT NULL
+                    AND type = 'document_chunks_embedding'
                     AND attempts < 3
                     ORDER BY created_at ASC
                     FOR UPDATE SKIP LOCKED
-                    LIMIT %s
+                    LIMIT 1
                 )
                 UPDATE jobs
                 SET status = 'processing',
                     last_attempted_at = NOW(),
+                    locked_at = NOW(),
                     attempts = attempts + 1,
                     next_attempt_at = NOW() + INTERVAL '5 minutes'
                 FROM locked
                 WHERE jobs.id = locked.id
-                RETURNING jobs.id, jobs.chunk_id,
-                          (SELECT CONCAT(headers, content) FROM document_chunks WHERE id = jobs.chunk_id);
-                """,
-                (batch_size,),
+                RETURNING jobs.id, jobs.document_id;
+                """
             )
-            jobs = cursor.fetchall()
-            chunk_ids = [chunk_id for _, chunk_id, _ in jobs]
-            if chunk_ids:
-                cursor.execute(
-                    """
-                    UPDATE document_chunks
-                    SET status = 'processing'
-                    WHERE id = ANY(%s) AND status = 'pending';
-                    """,
-                    (chunk_ids,),
-                )
+            job = cursor.fetchone()
+            if not job:
+                return None
+            job_id, document_id = job
             conn.commit()
-            return jobs
+
+            cursor.execute(
+                """
+                SELECT id, chunk_index, headers, content
+                from document_chunks
+                where document_id = %s AND
+                embedding is NULL
+                """,
+                (document_id,),
+            )
+            chunks = cursor.fetchall()
+            return job_id, document_id, chunks
     finally:
         conn.close()
 
@@ -76,28 +78,48 @@ def generate_dummy_embedding(content: str) -> list[float]:
     ]
 
 
-def store_embeddings(jobs):
+def store_embeddings(chunks):
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
-            for job_id, chunk_id, content in jobs:
-                embedding = generate_dummy_embedding(content)
+            for id, index, headers, content in chunks:
+                embedding = generate_dummy_embedding(headers + content)
                 cursor.execute(
                     """
                     UPDATE document_chunks
-                    SET embedding = %s, status = 'completed'
-                    WHERE id = %s AND status = 'processing';
+                    SET embedding = %s
+                    WHERE id = %s;
                     """,
-                    (embedding, chunk_id),
+                    (embedding, id),
                 )
-                cursor.execute(
-                    """
-                    UPDATE jobs
-                    SET status = 'completed', completed_at = NOW()
-                    WHERE id = %s AND status = 'processing';
-                    """,
-                    (job_id,),
-                )
+                conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def mark_document_as_completed(job_id: str, document_id: str):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE jobs
+                SET status = 'completed'
+                WHERE id = %s;
+                """,
+                (job_id,),
+            )
+            cursor.execute(
+                """
+                UPDATE documents
+                SET status = 'ready'
+                WHERE id = %s;
+                """,
+                (document_id,),
+            )
             conn.commit()
     except Exception:
         conn.rollback()
