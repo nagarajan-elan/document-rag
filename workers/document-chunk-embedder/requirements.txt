@@ -1,2 +1,4 @@
 psycopg[binary]>=3.2.3
 pgvector==0.5.0
+sentence-transformers
+torch==2.14.0+cpu

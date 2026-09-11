@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Uuid, DateTime, String, ForeignKey, Integer, text
+from sqlalchemy import Uuid, DateTime, String, ForeignKey, Integer, text, Index
 from datetime import datetime
 from sqlalchemy.orm import Mapped, mapped_column
 from pgvector.sqlalchemy import VECTOR
@@ -22,11 +22,20 @@ class DocumentChunk(Base):
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
     headers: Mapped[str] = mapped_column(String, nullable=True)
     content: Mapped[str] = mapped_column(String, nullable=False)
-    embedding: Mapped[list[float]] = mapped_column(VECTOR(3), nullable=True)
+    embedding: Mapped[list[float]] = mapped_column(VECTOR(384), nullable=True)
     page_start: Mapped[int] = mapped_column(Integer, nullable=False)
     page_end: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
+    )
+
+    __table_args__ = (
+        Index(
+            "unique_document_chunks",
+            "document_id",
+            "chunk_index",
+            unique=True,
+        ),
     )

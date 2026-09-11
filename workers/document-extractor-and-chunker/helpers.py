@@ -77,9 +77,9 @@ def create_document_chunk_records(document_id: str, chunks: list):
                 cursor.execute(
                     """
                     INSERT INTO document_chunks (document_id, chunk_index, headers, content, page_start, page_end)
-                    VALUES (%s, %s, %s, %s, %s, %s);
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (document_id, chunk_index) DO NOTHING;
                     """,
-                    # TODO: ON CONFLICT (document_id, chunk_index) DO NOTHING;
                     (
                         document_id,
                         chunk["chunk_index"],

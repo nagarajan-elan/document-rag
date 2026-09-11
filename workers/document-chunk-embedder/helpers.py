@@ -2,11 +2,20 @@ import hashlib
 import logging
 import os
 
+from constants import EMBED_MODEL
+
 import psycopg
 from pgvector.psycopg import register_vector
+from sentence_transformers import SentenceTransformer
 
 
 logger = logging.getLogger(__name__)
+
+
+embedding_model = SentenceTransformer(
+    EMBED_MODEL,
+    device="cpu",
+)
 
 
 def get_connection():
@@ -70,12 +79,12 @@ def claim_pending_chunks():
         conn.close()
 
 
-def generate_dummy_embedding(content: str) -> list[float]:
-    digest = hashlib.sha256(content.encode("utf-8")).digest()
-    return [
-        round(int.from_bytes(digest[index : index + 4], "big") / 2**32, 6)
-        for index in (0, 4, 8)
-    ]
+def generate_embedding(content: str) -> list[float]:
+    embeddings = embedding_model.encode(
+        content,
+        normalize_embeddings=True,
+    )
+    return embeddings.tolist()
 
 
 def store_embeddings(chunks):
@@ -83,7 +92,7 @@ def store_embeddings(chunks):
     try:
         with conn.cursor() as cursor:
             for id, index, headers, content in chunks:
-                embedding = generate_dummy_embedding(headers + content)
+                embedding = generate_embedding(headers + content)
                 cursor.execute(
                     """
                     UPDATE document_chunks
