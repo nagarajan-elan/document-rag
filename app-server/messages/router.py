@@ -1,8 +1,9 @@
 import uuid
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 
-from .repository import MessageRepository, get_message_repository
-from .schemas import MessageResponse, MessageCreatePayload
+from .services import MessageService, get_message_service
+from .schemas import MessagePayload, MessageResponse
 
 router = APIRouter(tags=["Messages"])
 
@@ -12,18 +13,24 @@ def get_messages(
     chat_id: uuid.UUID,
     page: int = 1,
     page_size: int = 10,
-    repository: MessageRepository = Depends(get_message_repository),
+    service: MessageService = Depends(get_message_service),
 ):
-    return repository.get_all(chat_id=chat_id, page=page, page_size=page_size)
+    return service.get_messages(chat_id=chat_id, page=page, page_size=page_size)
 
 
-@router.post("/", response_model=MessageResponse)
-def create_message(
+@router.post("/")
+async def create_message(
     chat_id: uuid.UUID,
-    payload: MessageCreatePayload,
-    repository: MessageRepository = Depends(get_message_repository),
+    data: MessagePayload,
+    service: MessageService = Depends(get_message_service),
 ):
     try:
-        return repository.create(chat_id=chat_id, data=payload)
+        return StreamingResponse(
+            service.generate_response(
+                chat_id=chat_id,
+                message=data.message,
+            ),
+            media_type="text/event-stream",
+        )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

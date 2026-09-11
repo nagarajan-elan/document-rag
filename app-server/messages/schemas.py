@@ -18,3 +18,7 @@ class MessageResponse(BaseModel):
     role: Literal["system", "user", "assistant"]
     chat_id: uuid.UUID
     created_at: datetime
+
+
+class MessagePayload(BaseModel):
+    message: str

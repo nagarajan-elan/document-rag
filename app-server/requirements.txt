@@ -5,3 +5,5 @@ psycopg[binary]==3.2.1
 uuid-utils
 python-multipart
 minio
+sentence-transformers
+torch==2.14.0+cpu

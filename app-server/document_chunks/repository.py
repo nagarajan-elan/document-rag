@@ -23,6 +23,18 @@ class DocumentChunkRepository:
             .order_by(DocumentChunk.chunk_index.asc())
         ).all()
 
+    def get_relevant_chunks(self, query_embedding: list[float], top_k: int = 4):
+        distance = DocumentChunk.embedding.cosine_distance(query_embedding)
+        return self.db.scalars(
+            select(
+                DocumentChunk,
+                distance.label("distance"),
+            )
+            .where(DocumentChunk.embedding.is_not(None))
+            .order_by(distance)
+            .limit(top_k)
+        ).all()
+
 
 def get_document_chunk_repository(db: Session = Depends(get_db)):
     return DocumentChunkRepository(db)
