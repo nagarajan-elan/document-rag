@@ -5,7 +5,10 @@ from minio import Minio
 import psycopg
 from docling.document_converter import DocumentConverter
 from docling.chunking import HybridChunker
+from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTokenizer
+from transformers import AutoTokenizer
 
+from constants import EMBED_MODEL, MAX_TOKENS, SUPPORTED_DOCUMENT_TYPES
 
 minio_client = Minio(
     endpoint=os.getenv("MINIO_ENDPOINT"),
@@ -14,6 +17,16 @@ minio_client = Minio(
     secure=os.getenv("MINIO_SECURE") == "true",
 )
 converter = DocumentConverter()
+
+tokenizer = HuggingFaceTokenizer(
+    tokenizer=AutoTokenizer.from_pretrained(EMBED_MODEL),
+    max_tokens=MAX_TOKENS,
+)
+
+chunker = HybridChunker(
+    tokenizer=tokenizer,
+    merge_peers=True,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -25,7 +38,6 @@ def chunk_document(file_path: str):
     doc = conv.document
 
     # 2. Structure-aware + token-aware chunking
-    chunker = HybridChunker()
     chunks = list(chunker.chunk(doc))
     result = []
 
@@ -119,10 +131,12 @@ def get_document(document_id: str):
 
 
 def get_chunks_from_document(file_path: str, extension: str):
-    if extension == ".pdf":
+    if extension in SUPPORTED_DOCUMENT_TYPES:
         return chunk_document(file_path)
     else:
-        raise ValueError(f"Unsupported file type for processing: {file_path}")
+        raise ValueError(
+            f"Unsupported {extension} file type for processing: {file_path}"
+        )
 
 
 def process_document(document_id: str):

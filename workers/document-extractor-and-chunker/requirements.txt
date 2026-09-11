@@ -1,4 +1,6 @@
 docling
+docling-core
 minio
 psycopg[binary]==3.2.1
 torch==2.14.0+cpu
+transformers

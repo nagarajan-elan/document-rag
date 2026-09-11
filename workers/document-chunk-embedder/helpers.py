@@ -51,7 +51,7 @@ def claim_pending_chunks():
             )
             job = cursor.fetchone()
             if not job:
-                return None
+                return None, None, []
             job_id, document_id = job
             conn.commit()
 
