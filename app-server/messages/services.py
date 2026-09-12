@@ -23,11 +23,17 @@ class MessageService:
         self.document_chunk_repository = document_chunk_repository
         self.llm_service = llm_service
 
-    def get_messages(self, chat_id: uuid.UUID, page: int = 1, page_size: int = 10):
-        messages = self.message_repository.get_all(
-            chat_id=chat_id, page=page, page_size=page_size
+    def get_messages(
+        self,
+        chat_id: uuid.UUID,
+        before: str | None = None,
+        limit: int = 10,
+    ):
+        return self.message_repository.get_all(
+            chat_id=chat_id,
+            before=before,
+            limit=limit,
         )
-        return messages
 
     async def generate_response(self, chat_id: uuid.UUID, message: str):
         # User message record entry
@@ -41,11 +47,19 @@ class MessageService:
         document_chunks = self.document_chunk_repository.get_relevant_chunks(
             query_embedding=user_message_embedding, top_k=4
         )
-        for chunk in document_chunks:
-            for dir in chunk.embedding:
-                logger.info(f"Chunk ID: {chunk.id}, Distance: {dir}")
-                yield f"data: Chunk {dir}\n\n"
+        # llm_response = self.llm_service.generate_response(message, document_chunks)
+        llm_message = []
+        for i in range(100):
+            import asyncio
+
+            await asyncio.sleep(0.1)
+            yield f"{message}\n\n"
+            llm_message.append(message)
         # TODO: Make LLM call and stream
+        self.message_repository.create(
+            chat_id,
+            MessageCreatePayload(content="".join(llm_message), role="assistant"),
+        )
 
 
 def get_message_service(

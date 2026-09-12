@@ -1,5 +1,5 @@
 import uuid
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from .services import MessageService, get_message_service
@@ -11,11 +11,15 @@ router = APIRouter(tags=["Messages"])
 @router.get("/", response_model=list[MessageResponse])
 def get_messages(
     chat_id: uuid.UUID,
-    page: int = 1,
-    page_size: int = 10,
+    before: str | None = Query(default=None),
+    limit: int = Query(default=10, ge=1, le=100),
     service: MessageService = Depends(get_message_service),
 ):
-    return service.get_messages(chat_id=chat_id, page=page, page_size=page_size)
+    return service.get_messages(
+        chat_id=chat_id,
+        before=before,
+        limit=limit,
+    )
 
 
 @router.post("/")

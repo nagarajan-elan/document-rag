@@ -412,10 +412,19 @@
 
       .message {
         max-width: 75%;
+        min-width: 0;
         padding: 14px 16px;
         border-radius: 16px;
         line-height: 1.5;
         box-shadow: 0 12px 26px rgba(8, 12, 18, 0.28);
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+
+      .message > div {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        word-break: break-word;
       }
 
       .message.user {
@@ -424,7 +433,8 @@
         border-bottom-right-radius: 4px;
       }
 
-      .message.assistant {
+      .message.assistant,
+      .message.system {
         align-self: flex-start;
         background: rgba(24, 38, 58, 0.9);
         border: 1px solid rgba(146, 176, 214, 0.15);
@@ -726,6 +736,7 @@
         documentHasMore: true,
         documentLoading: false,
         activeView: 'chat',
+        chatBusy: {},
       };
 
       function isNearBottom(container, threshold = 60) {
@@ -743,9 +754,41 @@
         if (!selectedChat) return;
 
         const messagePaging = getMessagePaging(selectedChat.id);
-        if (messagePaging.hasMore && !messagePaging.isLoading && isNearBottom(conversationEl, 80)) {
+        if (!messagePaging.hasMore || messagePaging.isLoading) return;
+
+        const nearTop = conversationEl.scrollTop <= 80;
+        if (nearTop) {
           fetchMessagesForChat(selectedChat.id, false);
         }
+      }
+
+      function isConversationNearBottom(threshold = 120) {
+        return conversationEl.scrollHeight - (conversationEl.scrollTop + conversationEl.clientHeight) <= threshold;
+      }
+
+      function syncComposerState() {
+        const activeChatId = state.selectedChatId;
+        const isBusy = Boolean(activeChatId && state.chatBusy[activeChatId]);
+        messageInputEl.disabled = isBusy;
+        document.getElementById('uploadDocumentButton').disabled = isBusy;
+        document.querySelector('#composerForm button[type="submit"]').disabled = isBusy;
+        messageInputEl.placeholder = isBusy ? 'Waiting for response...' : 'Ask about your enterprise knowledge base...';
+      }
+
+      function setChatBusy(chatId, nextState) {
+        if (!chatId) return;
+
+        if (nextState) {
+          state.chatBusy[chatId] = true;
+        } else {
+          delete state.chatBusy[chatId];
+        }
+
+        syncComposerState();
+      }
+
+      function isChatBusy(chatId) {
+        return Boolean(chatId && state.chatBusy[chatId]);
       }
 
       function maybeLoadMoreDocuments() {
@@ -823,6 +866,77 @@
           .sort((left, right) => new Date(left.created_at || 0) - new Date(right.created_at || 0));
       }
 
+      function dedupeMessages(messages) {
+        const uniqueById = new Map();
+        for (const message of messages) {
+          if (!message || typeof message !== 'object') continue;
+          const key = message.id || `${message.role}:${message.text}:${message.created_at || 'unknown'}`;
+          if (!uniqueById.has(key)) {
+            uniqueById.set(key, message);
+          }
+        }
+
+        return [...uniqueById.values()].sort(
+          (left, right) => new Date(left.created_at || 0) - new Date(right.created_at || 0)
+        );
+      }
+
+      function stripLocalDuplicates(chatId, incomingMessages) {
+        const existing = state.messageMap[chatId] || [];
+        const filtered = existing.filter((message) => {
+          if (!String(message.id || '').startsWith('local-')) return true;
+
+          const match = incomingMessages.some((incoming) => {
+            if (!incoming || incoming.role !== message.role || incoming.text !== message.text) return false;
+
+            const existingTime = new Date(message.created_at || 0).getTime();
+            const incomingTime = new Date(incoming.created_at || 0).getTime();
+            if (!existingTime || !incomingTime) return true;
+            return Math.abs(existingTime - incomingTime) <= 60000;
+          });
+
+          return !match;
+        });
+
+        return filtered;
+      }
+
+      function appendMessage(chatId, message) {
+        const chatMessages = state.messageMap[chatId] || [];
+        const existingIndex = chatMessages.findIndex((item) => item.id === message.id);
+
+        if (existingIndex >= 0) {
+          chatMessages[existingIndex] = message;
+        } else {
+          chatMessages.push(message);
+        }
+
+        state.messageMap[chatId] = dedupeMessages(chatMessages);
+        renderConversation();
+
+        if (isConversationNearBottom(150)) {
+          conversationEl.scrollTop = conversationEl.scrollHeight;
+        }
+      }
+
+      function parseStreamPayload(rawText) {
+        if (!rawText) return '';
+
+        const lines = rawText.split(/\r?\n/);
+        const payloadParts = [];
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          if (line.startsWith('data:')) {
+            payloadParts.push(line.slice(5).trim());
+          } else if (!line.startsWith(':')) {
+            payloadParts.push(line.trim());
+          }
+        }
+
+        return payloadParts.join('');
+      }
+
       function renderConversation() {
         const selected = state.chats.find((chat) => chat.id === state.selectedChatId);
         if (!selected) {
@@ -851,8 +965,8 @@
               .map(
                 (message) => `
                   <div class="message ${message.role}">
-                    <span class="message-role">${message.role === 'user' ? 'You' : 'Assistant'}</span>
-                    <div>${escapeHtml(message.text)}</div>
+                    <span class="message-role">${message.role === 'user' ? 'You' : message.role === 'system' ? 'System' : 'Assistant'}</span>
+                    <div>${escapeHtml(message.text || '')}</div>
                   </div>
                 `,
               )
@@ -904,13 +1018,22 @@
       function getMessagePaging(chatId) {
         if (!state.messagePaging[chatId]) {
           state.messagePaging[chatId] = {
-            page: 1,
+            before: null,
             hasMore: true,
             isLoading: false,
           };
         }
 
         return state.messagePaging[chatId];
+      }
+
+      function getOldestLoadedMessage(chatId) {
+        const messages = state.messageMap[chatId] || [];
+        if (!messages.length) return null;
+
+        return [...messages].sort(
+          (left, right) => new Date(left.created_at || 0) - new Date(right.created_at || 0)
+        )[0];
       }
 
       async function fetchMessagesForChat(chatId, reset = false) {
@@ -921,10 +1044,15 @@
         if (!reset && !messagePaging.hasMore) return;
 
         messagePaging.isLoading = true;
-        const page = reset ? 1 : messagePaging.page;
 
         try {
-          const response = await fetch(`${API_BASE}/chats/${chatId}/messages/?page=${page}&page_size=25`);
+          const params = new URLSearchParams({ limit: '10' });
+
+          if (!reset && messagePaging.before) {
+            params.set('before', messagePaging.before);
+          }
+
+          const response = await fetch(`${API_BASE}/chats/${chatId}/messages/?${params.toString()}`);
           if (!response.ok) {
             throw new Error('Failed to load chat messages');
           }
@@ -946,15 +1074,25 @@
 
           const normalized = normalizeMessages(messages);
           if (reset) {
-            state.messageMap[chatId] = normalized;
-            messagePaging.page = 2;
+            state.messageMap[chatId] = dedupeMessages(normalized);
           } else {
-            state.messageMap[chatId] = [...(state.messageMap[chatId] || []), ...normalized];
-            messagePaging.page += 1;
+            const existing = stripLocalDuplicates(chatId, normalized);
+            const merged = [...normalized, ...existing];
+            state.messageMap[chatId] = dedupeMessages(merged);
           }
 
-          messagePaging.hasMore = normalized.length >= 25;
+          const oldestLoaded = getOldestLoadedMessage(chatId);
+          messagePaging.before = oldestLoaded ? oldestLoaded.created_at : null;
+          messagePaging.hasMore = normalized.length >= 10;
+
+          const previousScrollHeight = conversationEl.scrollHeight;
           renderConversation();
+          if (reset) {
+            conversationEl.scrollTop = conversationEl.scrollHeight;
+          } else {
+            const heightDelta = conversationEl.scrollHeight - previousScrollHeight;
+            conversationEl.scrollTop += heightDelta;
+          }
           maybeLoadMoreMessages();
         } catch (error) {
           console.error(error);
@@ -1161,26 +1299,100 @@
       }
 
       async function postUserMessage(chatId, content) {
-        const response = await fetch(`${API_BASE}/chats/${chatId}/messages/`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content, role: 'user' }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.detail || 'Message creation failed');
+        if (isChatBusy(chatId)) {
+          throw new Error('This chat is already receiving a response.');
         }
 
-        const messagePaging = getMessagePaging(chatId);
-        messagePaging.page = 1;
-        messagePaging.hasMore = true;
-        await fetchMessagesForChat(chatId, true);
+        setChatBusy(chatId, true);
+
+        try {
+          const userMessage = {
+            id: `local-user-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            role: 'user',
+            text: content,
+            created_at: new Date().toISOString(),
+          };
+
+          appendMessage(chatId, userMessage);
+
+          const assistantMessage = {
+            id: `local-system-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            role: 'system',
+            text: '',
+            created_at: new Date().toISOString(),
+          };
+
+          appendMessage(chatId, assistantMessage);
+
+          const response = await fetch(`${API_BASE}/chats/${chatId}/messages/`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'text/event-stream',
+            },
+            body: JSON.stringify({ message: content }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || 'Message creation failed');
+          }
+
+          const reader = response.body?.getReader();
+          if (!reader) {
+            throw new Error('Response body is not readable');
+          }
+
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const chunks = buffer.split(/\n\n/);
+            buffer = chunks.pop() || '';
+
+            for (const chunk of chunks) {
+              const payload = parseStreamPayload(chunk);
+              if (!payload) continue;
+
+              assistantMessage.text += payload;
+              appendMessage(chatId, { ...assistantMessage, text: assistantMessage.text });
+            }
+
+            if (isConversationNearBottom(150)) {
+              conversationEl.scrollTop = conversationEl.scrollHeight;
+            }
+          }
+
+          const finalPayload = parseStreamPayload(buffer);
+          if (finalPayload) {
+            assistantMessage.text += finalPayload;
+            appendMessage(chatId, { ...assistantMessage, text: assistantMessage.text });
+          }
+
+          assistantMessage.role = 'assistant';
+          appendMessage(chatId, { ...assistantMessage, text: assistantMessage.text });
+
+          const messagePaging = getMessagePaging(chatId);
+          messagePaging.before = null;
+          messagePaging.beforeId = null;
+          messagePaging.hasMore = true;
+        } finally {
+          setChatBusy(chatId, false);
+        }
       }
 
       async function uploadDocument(file) {
         try {
           const selectedChat = await ensureChatSelected();
+          if (isChatBusy(selectedChat.id)) {
+            window.alert('This chat is already receiving a response. Please wait for it to finish.');
+            return;
+          }
+
           const formData = new FormData();
           formData.append('file', file);
 
@@ -1364,15 +1576,21 @@
 
         try {
           const selectedChat = await ensureChatSelected();
+          if (isChatBusy(selectedChat.id)) {
+            window.alert('This chat is already receiving a response. Please wait for it to finish.');
+            return;
+          }
+
           messageInputEl.value = '';
           await postUserMessage(selectedChat.id, text);
         } catch (error) {
           console.error(error);
-          window.alert('Your message could not be sent.');
+          window.alert(error.message || 'Your message could not be sent.');
         }
       });
 
       renderActiveView();
+      syncComposerState();
       fetchChatsPage();
       fetchDocumentsPage(true);
     </script>

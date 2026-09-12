@@ -1,4 +1,6 @@
 import uuid
+from datetime import datetime, timezone
+
 from .schemas import MessageCreatePayload
 from fastapi import Depends
 from sqlalchemy import select
@@ -14,15 +16,34 @@ class MessageRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_all(self, chat_id: uuid.UUID, page: int = 1, page_size: int = 10):
-        offset = (page - 1) * page_size
-        return self.db.scalars(
-            select(Message)
-            .offset(offset)
-            .limit(page_size)
-            .where(Message.chat_id == chat_id)
-            .order_by(Message.created_at.asc())
+    def _coerce_datetime(self, value):
+        if value is None:
+            return datetime.now(timezone.utc)
+
+        if isinstance(value, datetime):
+            return value
+
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+
+    def get_all(
+        self,
+        chat_id: uuid.UUID,
+        before: datetime | str | None = None,
+        limit: int = 10,
+    ):
+        if limit <= 0:
+            limit = 10
+
+        before_dt = self._coerce_datetime(before)
+        query = select(Message).where(
+            Message.chat_id == chat_id, Message.created_at < before_dt
+        )
+
+        rows = self.db.scalars(
+            query.order_by(Message.created_at.desc()).limit(limit)
         ).all()
+
+        return reversed(rows)
 
     def create(self, chat_id: uuid.UUID, data: MessageCreatePayload):
         chat = self.db.get(Chat, chat_id)

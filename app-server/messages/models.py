@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Uuid, DateTime, ForeignKey
+from sqlalchemy import Uuid, DateTime, ForeignKey, Index
 from datetime import datetime
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -18,3 +18,11 @@ class Message(Base):
     role: Mapped[str]
     content: Mapped[str]
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        Index(
+            "ix_messages_chat_created_id",
+            "chat_id",
+            "created_at",
+        ),
+    )
