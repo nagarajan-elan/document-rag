@@ -10,6 +10,11 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str
 
+    LLM_API_KEY: str
+    LLM_BASE_URL: str
+    CHAT_MODEL: str
+
+
     class Config:
         env_file = ".env"
 
