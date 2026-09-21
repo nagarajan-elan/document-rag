@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     LLM_BASE_URL: str
     CHAT_MODEL: str
 
+    OTEL_SERVICE_NAME: str = "knowledge-base-api"
+    OTEL_PROMETHEUS_PORT: int = 9465
 
     class Config:
         env_file = ".env"

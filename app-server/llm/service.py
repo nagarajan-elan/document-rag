@@ -1,8 +1,10 @@
-import os
+import time
+
 from sentence_transformers import SentenceTransformer
 from openai import AsyncOpenAI
 
 from config import settings
+from metrics import EMBEDDING_GENERATION_DURATION
 
 
 class LLMService:
@@ -20,11 +22,15 @@ class LLMService:
         self.chat_model = settings.CHAT_MODEL
 
     def generate_embedding(self, content: str) -> list[float]:
-        embeddings = self.embedding_model.encode(
-            content,
-            normalize_embeddings=True,
-        )
-        return embeddings.tolist()
+        start = time.perf_counter()
+        try:
+            embeddings = self.embedding_model.encode(
+                content,
+                normalize_embeddings=True,
+            )
+            return embeddings.tolist()
+        finally:
+            EMBEDDING_GENERATION_DURATION.observe(time.perf_counter() - start)
 
     async def generate_response(self, messages):
         return await self.client.chat.completions.create(

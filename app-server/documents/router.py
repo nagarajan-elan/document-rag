@@ -8,6 +8,7 @@ from .repository import (
 )
 from .schemas import DocumentPatchPayload, DocumentResponse, DocumentCreatePayload
 from config import settings
+from metrics import DOCUMENTS_UPLOADED_TOTAL
 from storage.minio import client as cloud_client
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
@@ -46,6 +47,7 @@ def upload_document(
             status="uploaded", filename=file.filename, object_key=object_key
         )
     )
+    DOCUMENTS_UPLOADED_TOTAL.inc()
     return document
 
 
