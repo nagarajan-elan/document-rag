@@ -17,3 +17,22 @@ EMBEDDING_GENERATION_DURATION = Histogram(
     "Time spent generating vector embeddings for content.",
     buckets=(0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30),
 )
+
+CHAT_MESSAGES_FETCH_DURATION = Histogram(
+    "chat_messages_fetch_duration_seconds",
+    "Time spent fetching chat messages from the database.",
+    labelnames=("operation",),
+    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30),
+)
+
+LLM_TIME_TO_FIRST_TOKEN = Histogram(
+    "llm_time_to_first_token_seconds",
+    "Time from starting a chat completion to receiving its first content token.",
+    buckets=(0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 30),
+)
+
+LLM_STREAM_DURATION = Histogram(
+    "llm_stream_duration_seconds",
+    "Time from starting a chat completion until its response stream ends.",
+    buckets=(0.1, 0.25, 0.5, 1, 2.5, 5, 10, 15, 30, 60),
+)

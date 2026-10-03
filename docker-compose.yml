@@ -12,9 +12,12 @@ services:
         condition: service_healthy
       minio:
         condition: service_started
+      tempo:
+        condition: service_started
     environment:
       OTEL_SERVICE_NAME: knowledge-base-api
       OTEL_PROMETHEUS_PORT: 9465
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://tempo:4318/v1/traces
     command: uvicorn main:app --host 0.0.0.0 --port 8000
 
   prometheus:
@@ -26,6 +29,26 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
     depends_on:
       - api
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: rag-tempo
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    ports:
+      - "3200:3200"
+      - "4318:4318"
+    volumes:
+      - ./tempo/tempo.yaml:/etc/tempo.yaml:ro
+      # - tempo-data:/tmp/tempo
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: rag-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
 
   postgres:
     image: pgvector/pgvector:pg16
@@ -88,3 +111,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+# volumes:
+#   tempo-data:
+
+volumes:
+  grafana-data:

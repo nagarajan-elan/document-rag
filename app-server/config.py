@@ -16,6 +16,7 @@ class Settings(BaseSettings):
 
     OTEL_SERVICE_NAME: str = "knowledge-base-api"
     OTEL_PROMETHEUS_PORT: int = 9465
+    OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: str = "http://tempo:4318/v1/traces"
 
     class Config:
         env_file = ".env"

@@ -1,11 +1,14 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from opentelemetry import metrics
+from opentelemetry import metrics, trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.exporter.prometheus import PrometheusMetricReader
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from prometheus_client import start_http_server
 
 from storage.minio import ensure_bucket
@@ -27,6 +30,11 @@ resource = Resource.create({"service.name": settings.OTEL_SERVICE_NAME})
 reader = PrometheusMetricReader()
 provider = MeterProvider(resource=resource, metric_readers=[reader])
 metrics.set_meter_provider(provider)
+
+trace_provider = TracerProvider(resource=resource)
+span_exporter = OTLPSpanExporter(endpoint=settings.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT)
+trace_provider.add_span_processor(BatchSpanProcessor(span_exporter))
+trace.set_tracer_provider(trace_provider)
 
 start_http_server(port=settings.OTEL_PROMETHEUS_PORT)
 
