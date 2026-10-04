@@ -41,6 +41,22 @@ services:
       - ./tempo/tempo.yaml:/etc/tempo.yaml:ro
       # - tempo-data:/tmp/tempo
 
+  loki:
+    image: grafana/loki:3.5.0 # pin to a current 3.x
+    command: -config.file=/etc/loki/config.yaml
+    volumes:
+      - ./loki-config.yaml:/etc/loki/config.yaml
+      # - loki-data:/loki
+    ports: [ "3100:3100" ]
+
+  alloy:
+    image: grafana/alloy:latest # pin a version in practice
+    command: run /etc/alloy/config.alloy
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on: [ loki ]
+
   grafana:
     image: grafana/grafana:11.2.0
     container_name: rag-grafana
@@ -49,6 +65,7 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on: [ loki ]
 
   postgres:
     image: pgvector/pgvector:pg16
