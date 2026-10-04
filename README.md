@@ -2,6 +2,9 @@ This a document based RAG application also known as Knowledge Base (KB).
 
 KB allows users to upload documents of various formats and enquire informations from the uploaded documents.
 
+![alt text](docs/images/app-ui.png)
+<br>
+
 # System Architecture Overview
 
 ![alt text](docs/images/architecture-diagram.png)
@@ -16,7 +19,7 @@ KB allows users to upload documents of various formats and enquire informations 
 
 ![alt text](docs/images/kb-trace.png)
 
-This project uses docker compose to spin up required services.
+This project uses docker compose to spin up required services.  
 On root directory, with docker engine running, execute
 `docker compose up -d`
 
