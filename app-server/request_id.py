@@ -31,6 +31,7 @@ class RequestIdMiddleware:
             ),
             "",
         ) or str(uuid.uuid4())
+        scope.setdefault("state", {})["request_id"] = request_id
         token = request_id_context.set(request_id)
         started_at = time.perf_counter()
         status_code = None

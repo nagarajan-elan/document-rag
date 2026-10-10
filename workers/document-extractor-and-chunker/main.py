@@ -4,28 +4,34 @@ import logging
 import multiprocessing
 import psycopg
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+from logging_config import bind_job_context, configure_logging
 
+configure_logging()
 logger = logging.getLogger(__name__)
 logger.info("Document watcher starting...")
 
 
-def _process_document_child(document_id):
+def _process_document_child(document_id, job_id, request_id, attempt):
+    with bind_job_context(request_id, job_id, attempt):
+        _process_document(job_id, document_id, request_id)
+
+
+def _process_document(job_id, document_id, request_id):
     from helpers import process_document
 
     try:
-        process_document(document_id)
+        process_document(document_id, request_id)
     except BaseException:
         logger.exception("Document processing child failed for document_id: %s", document_id)
         raise
 
 
-def process_document_isolated(document_id):
+def process_document_isolated(job_id, document_id, request_id, attempt):
     context = multiprocessing.get_context("spawn")
-    process = context.Process(target=_process_document_child, args=(document_id,))
+    process = context.Process(
+        target=_process_document_child,
+        args=(document_id, job_id, request_id, attempt),
+    )
     process.start()
     process.join()
     exitcode = process.exitcode
@@ -63,7 +69,7 @@ def get_uploaded_document_from_db():
                 SET status = 'processing', last_attempted_at = NOW(), attempts = attempts + 1, next_attempt_at = NOW() + INTERVAL '5 minutes'
                 FROM locked
                 WHERE j.id = locked.id
-                RETURNING j.id, j.document_id;
+                RETURNING j.id, j.document_id, j.request_id, j.attempts;
             """
             )
 
@@ -87,9 +93,17 @@ def main():
                 )
                 continue
 
-            logger.info(f"Processing document: {document}")
-            document_id = document[1]
-            process_document_isolated(document_id)
+            job_id, document_id, request_id, attempt = document
+            with bind_job_context(request_id, job_id, attempt):
+                logger.info("Processing document")
+                try:
+                    process_document_isolated(
+                        job_id, document_id, request_id, attempt
+                    )
+                except Exception:
+                    logger.exception(
+                        "Error while processing document_id: %s", document_id
+                    )
 
         except Exception as e:
             logger.exception("Error while processing document: %s", e)

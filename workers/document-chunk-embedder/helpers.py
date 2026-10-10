@@ -1,4 +1,3 @@
-import hashlib
 import logging
 import os
 
@@ -55,13 +54,13 @@ def claim_pending_chunks():
                     next_attempt_at = NOW() + INTERVAL '5 minutes'
                 FROM locked
                 WHERE jobs.id = locked.id
-                RETURNING jobs.id, jobs.document_id;
+                RETURNING jobs.id, jobs.document_id, jobs.request_id, jobs.attempts;
                 """
             )
             job = cursor.fetchone()
             if not job:
-                return None, None, []
-            job_id, document_id = job
+                return None, None, None, None, []
+            job_id, document_id, request_id, attempt = job
             conn.commit()
 
             cursor.execute(
@@ -74,7 +73,7 @@ def claim_pending_chunks():
                 (document_id,),
             )
             chunks = cursor.fetchall()
-            return job_id, document_id, chunks
+            return job_id, document_id, request_id, attempt, chunks
     finally:
         conn.close()
 

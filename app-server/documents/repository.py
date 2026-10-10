@@ -25,7 +25,7 @@ class DocumentRepository:
             .order_by(Document.created_at.desc())
         ).all()
 
-    def create(self, data: DocumentCreatePayload):
+    def create(self, data: DocumentCreatePayload, request_id: str):
         document = Document(**data.model_dump())
         self.db.add(document)
         self.db.flush()  # document.id is now available
@@ -34,6 +34,7 @@ class DocumentRepository:
             document_id=document.id,
             type="document_extraction",
             status="pending",
+            request_id=request_id,
         )
         self.db.add(job)
         self.db.commit()

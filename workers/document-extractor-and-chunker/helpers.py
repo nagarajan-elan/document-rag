@@ -60,7 +60,7 @@ def chunk_document(file_path: str):
     return result
 
 
-def create_document_chunk_records(document_id: str, chunks: list):
+def create_document_chunk_records(document_id: str, chunks: list, request_id: str):
     """
     Create document chunk records in the database for the given document_id and chunks.
     """
@@ -95,10 +95,10 @@ def create_document_chunk_records(document_id: str, chunks: list):
             conn.commit()  # Final commit for any remaining inserts
             cursor.execute(
                 """
-                INSERT INTO jobs (document_id, type, status)
-                VALUES (%s, 'document_chunks_embedding', 'pending');
+                INSERT INTO jobs (document_id, type, status, request_id)
+                VALUES (%s, 'document_chunks_embedding', 'pending', %s);
                 """,
-                (document_id,),
+                (document_id, request_id),
             )
             conn.commit()
             logger.info(f"Inserted {len(chunks)} chunks for document_id: {document_id}")
@@ -139,7 +139,7 @@ def get_chunks_from_document(file_path: str, extension: str):
         )
 
 
-def process_document(document_id: str):
+def process_document(document_id: str, request_id: str):
     """
     Process the document with the given document_id.
     This function should contain the logic to process the document, e.g., send it to an AI model for analysis.
@@ -167,7 +167,7 @@ def process_document(document_id: str):
         chunks = get_chunks_from_document(temp_path, extension=extension)
         logger.info(f"Document processed successfully. Result: {chunks}")
 
-        create_document_chunk_records(document_id, chunks)
+        create_document_chunk_records(document_id, chunks, request_id)
 
     except Exception as e:
         raise RuntimeError(f"Failed to process document {document_id}: {e}") from e

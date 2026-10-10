@@ -1,6 +1,6 @@
 import uuid
 from pathlib import Path
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 import logging
 
 from .repository import (
@@ -26,6 +26,7 @@ def get_documents(
 
 @router.post("/", response_model=DocumentResponse)
 def upload_document(
+    request: Request,
     file: UploadFile = File(...),
     repository: DocumentRepository = Depends(get_document_repository),
 ):
@@ -47,7 +48,8 @@ def upload_document(
     document = repository.create(
         data=DocumentCreatePayload(
             status="uploaded", filename=file.filename, object_key=object_key
-        )
+        ),
+        request_id=request.state.request_id,
     )
     DOCUMENTS_UPLOADED_TOTAL.inc()
     return document
