@@ -16,15 +16,20 @@ from storage.minio import ensure_bucket
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from starlette.types import ASGIApp
 
 from chats.router import router as chats_router
 from document_chunks.router import router as document_chunks_router
 from documents.router import router as documents_router
 from config import settings
+from json_logging import configure_logging
+from request_id import RequestIdMiddleware
 
 # TODO: Remove below import once db migrations are handled separately
 from db.models import Base
 
+
+configure_logging()
 
 resource = Resource.create({"service.name": settings.OTEL_SERVICE_NAME})
 reader = PrometheusMetricReader()
@@ -46,23 +51,27 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(lifespan=lifespan)
-FastAPIInstrumentor.instrument_app(app)
+fastapi_app = FastAPI(lifespan=lifespan)
+FastAPIInstrumentor.instrument_app(fastapi_app)
 
-app.add_middleware(
+fastapi_app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Request-ID"],
 )
 
-app.include_router(chats_router)
-app.include_router(documents_router)
-app.include_router(document_chunks_router)
+fastapi_app.include_router(chats_router)
+fastapi_app.include_router(documents_router)
+fastapi_app.include_router(document_chunks_router)
 
 
-@app.get("/")
+@fastapi_app.get("/")
 def root():
     frontend_path = Path(__file__).resolve().parent.parent / "frontend" / "index.html"
     return FileResponse(frontend_path)
+
+
+app: ASGIApp = RequestIdMiddleware(fastapi_app)

@@ -1,6 +1,7 @@
 import uuid
 from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+import logging
 
 from .repository import (
     DocumentRepository,
@@ -12,7 +13,7 @@ from metrics import DOCUMENTS_UPLOADED_TOTAL
 from storage.minio import client as cloud_client
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
-
+logger = logging.getLogger(__name__)
 
 @router.get("/", response_model=list[DocumentResponse])
 def get_documents(
@@ -41,6 +42,7 @@ def upload_document(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to upload file: {e}")
+    logger.info("File Uploaded successfully.")
 
     document = repository.create(
         data=DocumentCreatePayload(
