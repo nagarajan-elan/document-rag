@@ -37,6 +37,7 @@ class LLMService:
             model=self.chat_model,
             messages=messages,
             stream=True,
+            stream_options={"include_usage": True},
         )
 
 

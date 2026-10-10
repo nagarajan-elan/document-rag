@@ -4,6 +4,8 @@ import logging
 from opentelemetry import trace
 from metrics import (
     CHAT_MESSAGES_FETCH_DURATION,
+    LLM_INPUT_TOKENS,
+    LLM_OUTPUT_TOKENS,
     LLM_STREAM_DURATION,
     LLM_TIME_TO_FIRST_TOKEN,
 )
@@ -116,6 +118,14 @@ class MessageService:
                 with tracer.start_as_current_span("llm_request"):
                     llm_response = await self.llm_service.generate_response(messages)
                 async for chunk in llm_response:
+                    if chunk.usage:
+                        model = chunk.model or self.llm_service.chat_model
+                        LLM_INPUT_TOKENS.labels(model=model).inc(
+                            chunk.usage.prompt_tokens
+                        )
+                        LLM_OUTPUT_TOKENS.labels(model=model).inc(
+                            chunk.usage.completion_tokens
+                        )
                     if chunk.choices:
                         msg_in_chunk = chunk.choices[0].delta.content
                         if msg_in_chunk:
